@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 import traceback
 from typing import Optional, List
-from threading import Thread
 
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -18,7 +17,7 @@ from PyQt5.QtWidgets import (
     QCheckBox, QTabWidget, QSpinBox, QDoubleSpinBox,
     QMessageBox, QStatusBar, QProgressBar, QHeaderView
 )
-from PyQt5.QtCore import Qt, pyqtSignal, QObject
+from PyQt5.QtCore import Qt, pyqtSignal, QObject, QThread
 from PyQt5.QtGui import QFont, QColor
 
 from loan_calculator import LoanCalculator
@@ -504,7 +503,7 @@ class LoanCalculatorApp(QMainWindow):
             self.statusBar.showMessage('Running calculations...')
 
             # Run in background thread
-            self.calculation_thread = Thread()
+            self.calculation_thread = QThread()
             self.worker = CalculationWorker(self.calculator, max_payment, strategies)
             self.worker.moveToThread(self.calculation_thread)
 
