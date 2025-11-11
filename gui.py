@@ -225,7 +225,7 @@ class LoanCalculatorApp(QMainWindow):
     def init_ui(self):
         """Initialize the user interface."""
         self.setWindowTitle('Loan Payment Calculator')
-        self.setGeometry(100, 100, 1200, 1000)
+        self.setGeometry(100, 100, 1400, 1100)
 
         # Apply modern stylesheet that works with light and dark themes
         self.setup_stylesheet()
@@ -252,15 +252,8 @@ class LoanCalculatorApp(QMainWindow):
 
         main_layout.addSpacing(10)
 
-        # Create tabs for file upload vs manual entry
-        self.tabs = QTabWidget()
-        main_layout.addWidget(self.tabs)
-
-        # Tab 1: Upload File
-        self.create_file_upload_tab()
-
-        # Tab 2: Manual Entry
-        self.create_manual_entry_tab()
+        # Loan Data Section
+        self.create_loan_data_section(main_layout)
 
         main_layout.addSpacing(10)
 
@@ -364,124 +357,114 @@ class LoanCalculatorApp(QMainWindow):
         self.setStatusBar(self.statusBar)
         self.statusBar.showMessage('Ready')
 
-    def create_file_upload_tab(self):
-        """Create the file upload tab."""
-        tab = QWidget()
-        layout = QVBoxLayout()
-
+    def create_loan_data_section(self, parent_layout):
+        """Create unified loan data section with editable table."""
         # Guidance
         guidance = QLabel(
-            'Upload a file with your loan information.\n\n'
-            'Required columns (in order):\n'
-            '1. Loan Number\n'
-            '2. Lender/Description\n'
-            '3. Loan Type\n'
-            '4. Term (months)\n'
-            '5. Principal Balance (REQUIRED)\n'
-            '6. Minimum Monthly Payment (REQUIRED)\n'
-            '7. Annual Interest Rate % (REQUIRED)\n\n'
-            'Supported formats: Excel (.xlsx, .xls), CSV, TSV, Text files\n'
-            'Click "Download Template" below for an example file.'
+            'Enter your loan information below. You can either upload a file or manually add loans to the table.\n'
+            'All fields are editable. Required columns: Principal Balance, Minimum Monthly Payment, Annual Interest Rate %'
         )
         guidance.setObjectName('guidance_box')
-        layout.addWidget(guidance)
+        parent_layout.addWidget(guidance)
 
-        layout.addSpacing(10)
+        parent_layout.addSpacing(10)
 
-        # Template button
-        template_btn = QPushButton('Download Template File')
-        template_btn.clicked.connect(self.download_template)
-        layout.addWidget(template_btn)
-
-        layout.addSpacing(10)
-
-        # File selection
+        # File upload section
         file_layout = QHBoxLayout()
-        file_layout.addWidget(QLabel('Input File:'))
+
+        template_btn = QPushButton('Download Template')
+        template_btn.clicked.connect(self.download_template)
+        file_layout.addWidget(template_btn)
+
+        file_layout.addWidget(QLabel('Or upload:'))
         self.file_input = QLineEdit()
         self.file_input.setReadOnly(True)
+        self.file_input.setPlaceholderText('No file selected')
         file_layout.addWidget(self.file_input)
+
         self.browse_btn = QPushButton('Browse')
         self.browse_btn.clicked.connect(self.browse_file)
         file_layout.addWidget(self.browse_btn)
-        layout.addLayout(file_layout)
 
-        load_layout = QHBoxLayout()
         self.load_btn = QPushButton('Load File')
         self.load_btn.clicked.connect(self.load_file)
-        load_layout.addWidget(self.load_btn)
-        self.file_status = QLabel('')
-        self.file_status.setObjectName('file_status')
-        load_layout.addWidget(self.file_status)
-        load_layout.addStretch()
-        layout.addLayout(load_layout)
+        file_layout.addWidget(self.load_btn)
 
-        layout.addStretch()
-        tab.setLayout(layout)
-        self.tabs.addTab(tab, 'Upload File')
+        parent_layout.addLayout(file_layout)
 
-    def create_manual_entry_tab(self):
-        """Create the manual loan entry tab."""
-        tab = QWidget()
-        layout = QVBoxLayout()
+        parent_layout.addSpacing(10)
 
-        guidance = QLabel(
-            'Manually enter your loan information below.\n'
-            'Fill in all fields and click "Add Loan" to add each loan.'
-        )
-        guidance.setObjectName('guidance_box')
-        layout.addWidget(guidance)
+        # Loan data table
+        self.loan_data_title = QLabel('Loan Information')
+        title_font = QFont()
+        title_font.setPointSize(12)
+        title_font.setBold(True)
+        self.loan_data_title.setFont(title_font)
+        parent_layout.addWidget(self.loan_data_title)
 
-        layout.addSpacing(10)
+        self.loans_table = QTableWidget()
+        self.loans_table.setColumnCount(7)
+        self.loans_table.setHorizontalHeaderLabels([
+            'Loan #', 'Description', 'Type', 'Term (mo)', 'Principal', 'Min Payment', 'Interest Rate %'
+        ])
+        self.loans_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.loans_table.setMinimumHeight(150)
+        parent_layout.addWidget(self.loans_table)
 
-        # Input fields
-        input_layout = QHBoxLayout()
+        parent_layout.addSpacing(5)
 
-        input_layout.addWidget(QLabel('Name:'))
-        self.loan_name_input = QLineEdit()
-        self.loan_name_input.setPlaceholderText('e.g., Student Loan A')
-        input_layout.addWidget(self.loan_name_input)
+        # Add loan form
+        form_layout = QHBoxLayout()
 
-        input_layout.addWidget(QLabel('Principal:'))
+        form_layout.addWidget(QLabel('Add Loan:'))
+
+        form_layout.addWidget(QLabel('Description:'))
+        self.loan_description_input = QLineEdit()
+        self.loan_description_input.setPlaceholderText('e.g., Student Loan A')
+        form_layout.addWidget(self.loan_description_input)
+
+        form_layout.addWidget(QLabel('Type:'))
+        self.loan_type_input = QLineEdit()
+        self.loan_type_input.setPlaceholderText('e.g., Federal')
+        form_layout.addWidget(self.loan_type_input)
+
+        form_layout.addWidget(QLabel('Principal:'))
         self.principal_input = QDoubleSpinBox()
         self.principal_input.setMaximum(999999999)
-        input_layout.addWidget(self.principal_input)
+        form_layout.addWidget(self.principal_input)
 
-        input_layout.addWidget(QLabel('Min Payment:'))
+        form_layout.addWidget(QLabel('Min Payment:'))
         self.min_payment_input = QDoubleSpinBox()
         self.min_payment_input.setMaximum(999999)
-        input_layout.addWidget(self.min_payment_input)
+        form_layout.addWidget(self.min_payment_input)
 
-        input_layout.addWidget(QLabel('Interest Rate (%):'))
+        form_layout.addWidget(QLabel('Interest %:'))
         self.interest_rate_input = QDoubleSpinBox()
         self.interest_rate_input.setMaximum(100)
         self.interest_rate_input.setDecimals(2)
-        input_layout.addWidget(self.interest_rate_input)
+        form_layout.addWidget(self.interest_rate_input)
 
-        self.add_loan_btn = QPushButton('Add Loan')
-        self.add_loan_btn.clicked.connect(self.add_loan)
-        input_layout.addWidget(self.add_loan_btn)
+        self.add_loan_btn = QPushButton('Add')
+        self.add_loan_btn.clicked.connect(self.add_loan_to_table)
+        form_layout.addWidget(self.add_loan_btn)
 
-        layout.addLayout(input_layout)
+        parent_layout.addLayout(form_layout)
 
-        layout.addSpacing(10)
+        parent_layout.addSpacing(5)
 
-        # Loans table
-        self.manual_loans_table = QTableWidget()
-        self.manual_loans_table.setColumnCount(5)
-        self.manual_loans_table.setHorizontalHeaderLabels(['Name', 'Principal', 'Min Payment', 'Interest Rate (%)', 'Remove'])
-        self.manual_loans_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        layout.addWidget(self.manual_loans_table)
+        # Table management buttons
+        button_layout = QHBoxLayout()
 
-        layout.addSpacing(10)
+        self.remove_loan_btn = QPushButton('Remove Selected Row')
+        self.remove_loan_btn.clicked.connect(self.remove_selected_row)
+        button_layout.addWidget(self.remove_loan_btn)
 
-        # Status label
-        self.manual_status = QLabel('No loans added yet')
-        layout.addWidget(self.manual_status)
+        self.clear_table_btn = QPushButton('Clear All')
+        self.clear_table_btn.clicked.connect(self.clear_loans_table)
+        button_layout.addStretch()
+        button_layout.addWidget(self.clear_table_btn)
 
-        layout.addStretch()
-        tab.setLayout(layout)
-        self.tabs.addTab(tab, 'Manual Entry')
+        parent_layout.addLayout(button_layout)
 
     def download_template(self):
         """Download template file."""
@@ -504,7 +487,7 @@ class LoanCalculatorApp(QMainWindow):
             self.file_input.setText(filepath)
 
     def load_file(self):
-        """Load the selected file."""
+        """Load the selected file and populate the table."""
         filepath = self.file_input.text()
         if not filepath:
             QMessageBox.warning(self, 'Warning', 'Please select a file')
@@ -519,25 +502,66 @@ class LoanCalculatorApp(QMainWindow):
                 self.statusBar.showMessage(f'Error: {error}')
                 return
 
+            # Populate the table from loaded data
+            self.populate_loans_table(self.calculator.loan_data)
+
             self.current_file = filepath
             filename = Path(filepath).name
-            self.file_status.setText('✓ Loaded')
             self.statusBar.showMessage(f'Loaded: {filename}')
 
         except Exception as e:
             QMessageBox.critical(self, 'Error', f'Error loading file: {str(e)}')
             self.statusBar.showMessage(f'Error: {str(e)}')
 
-    def add_loan(self):
-        """Add a loan from manual entry."""
+    def populate_loans_table(self, df):
+        """Populate the loans table from a DataFrame."""
         try:
-            name = self.loan_name_input.text().strip()
+            self.loans_table.setRowCount(len(df))
+
+            for row, (_, loan_row) in enumerate(df.iterrows()):
+                # Loan #
+                loan_num_item = QTableWidgetItem(str(loan_row.iloc[0]))
+                self.loans_table.setItem(row, 0, loan_num_item)
+
+                # Description (column 1)
+                desc_item = QTableWidgetItem(str(loan_row.iloc[1]))
+                self.loans_table.setItem(row, 1, desc_item)
+
+                # Type (column 2)
+                type_item = QTableWidgetItem(str(loan_row.iloc[2]))
+                self.loans_table.setItem(row, 2, type_item)
+
+                # Term (column 3)
+                term_item = QTableWidgetItem(str(int(loan_row.iloc[3])))
+                self.loans_table.setItem(row, 3, term_item)
+
+                # Principal (column 4)
+                principal_item = QTableWidgetItem(f'{float(loan_row.iloc[4]):,.2f}')
+                self.loans_table.setItem(row, 4, principal_item)
+
+                # Min Payment (column 5)
+                payment_item = QTableWidgetItem(f'{float(loan_row.iloc[5]):,.2f}')
+                self.loans_table.setItem(row, 5, payment_item)
+
+                # Interest Rate (column 6)
+                rate_item = QTableWidgetItem(f'{float(loan_row.iloc[6]):.2f}')
+                self.loans_table.setItem(row, 6, rate_item)
+
+            self.statusBar.showMessage(f'Table updated: {len(df)} loan(s)')
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'Error populating table: {str(e)}')
+
+    def add_loan_to_table(self):
+        """Add a loan from the form to the table."""
+        try:
+            description = self.loan_description_input.text().strip()
+            loan_type = self.loan_type_input.text().strip()
             principal = self.principal_input.value()
             min_payment = self.min_payment_input.value()
             interest_rate = self.interest_rate_input.value()
 
-            if not name:
-                QMessageBox.warning(self, 'Warning', 'Please enter a loan name')
+            if not description:
+                QMessageBox.warning(self, 'Warning', 'Please enter a loan description')
                 return
             if principal <= 0:
                 QMessageBox.warning(self, 'Warning', 'Principal must be greater than 0')
@@ -549,84 +573,100 @@ class LoanCalculatorApp(QMainWindow):
                 QMessageBox.warning(self, 'Warning', 'Interest rate must be between 0 and 100')
                 return
 
-            # Add to table
-            row = self.manual_loans_table.rowCount()
-            self.manual_loans_table.insertRow(row)
+            # Add new row
+            row = self.loans_table.rowCount()
+            self.loans_table.insertRow(row)
 
-            self.manual_loans_table.setItem(row, 0, QTableWidgetItem(name))
+            # Loan # (auto-increment)
+            loan_num = self.loans_table.rowCount()
+            self.loans_table.setItem(row, 0, QTableWidgetItem(str(loan_num)))
 
-            principal_item = QTableWidgetItem(f'${principal:,.2f}')
-            principal_item.setFlags(principal_item.flags() & ~Qt.ItemIsEditable)
-            self.manual_loans_table.setItem(row, 1, principal_item)
+            # Description
+            self.loans_table.setItem(row, 1, QTableWidgetItem(description))
 
-            payment_item = QTableWidgetItem(f'${min_payment:,.2f}')
-            payment_item.setFlags(payment_item.flags() & ~Qt.ItemIsEditable)
-            self.manual_loans_table.setItem(row, 2, payment_item)
+            # Type
+            self.loans_table.setItem(row, 2, QTableWidgetItem(loan_type))
 
-            rate_item = QTableWidgetItem(f'{interest_rate:.2f}%')
-            rate_item.setFlags(rate_item.flags() & ~Qt.ItemIsEditable)
-            self.manual_loans_table.setItem(row, 3, rate_item)
+            # Term (default 0)
+            self.loans_table.setItem(row, 3, QTableWidgetItem('0'))
 
-            # Remove button
-            remove_btn = QPushButton('Remove')
-            remove_btn.clicked.connect(lambda: self.remove_loan(row))
-            self.manual_loans_table.setCellWidget(row, 4, remove_btn)
+            # Principal
+            self.loans_table.setItem(row, 4, QTableWidgetItem(f'{principal:,.2f}'))
+
+            # Min Payment
+            self.loans_table.setItem(row, 5, QTableWidgetItem(f'{min_payment:,.2f}'))
+
+            # Interest Rate
+            self.loans_table.setItem(row, 6, QTableWidgetItem(f'{interest_rate:.2f}'))
 
             # Clear inputs
-            self.loan_name_input.clear()
+            self.loan_description_input.clear()
+            self.loan_type_input.clear()
             self.principal_input.setValue(0)
             self.min_payment_input.setValue(0)
             self.interest_rate_input.setValue(0)
 
-            # Update status
-            self.manual_status.setText(f'{self.manual_loans_table.rowCount()} loan(s) added')
+            self.statusBar.showMessage(f'Loan added: {self.loans_table.rowCount()} total loans')
 
         except Exception as e:
             QMessageBox.critical(self, 'Error', f'Error adding loan: {str(e)}')
 
-    def remove_loan(self, row):
-        """Remove a loan from the table."""
-        self.manual_loans_table.removeRow(row)
-        self.manual_status.setText(f'{self.manual_loans_table.rowCount()} loan(s) added')
+    def remove_selected_row(self):
+        """Remove the selected row from the table."""
+        current_row = self.loans_table.currentRow()
+        if current_row >= 0:
+            self.loans_table.removeRow(current_row)
+            self.statusBar.showMessage(f'Row removed: {self.loans_table.rowCount()} loans remaining')
+        else:
+            QMessageBox.warning(self, 'Warning', 'Please select a row to remove')
+
+    def clear_loans_table(self):
+        """Clear all rows from the loans table."""
+        reply = QMessageBox.question(
+            self, 'Confirm Clear',
+            'Are you sure you want to clear all loans?',
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply == QMessageBox.Yes:
+            self.loans_table.setRowCount(0)
+            self.statusBar.showMessage('Table cleared')
 
     def get_loan_data(self):
-        """Get loan data from manual entry or file."""
-        if self.tabs.currentIndex() == 0:
-            # File upload tab
-            if not self.current_file:
-                QMessageBox.warning(self, 'Warning', 'Please load a file first')
-                return None
-            return self.calculator.loan_data
-        else:
-            # Manual entry tab
-            if self.manual_loans_table.rowCount() == 0:
-                QMessageBox.warning(self, 'Warning', 'Please add at least one loan')
-                return None
+        """Get loan data from the table."""
+        if self.loans_table.rowCount() == 0:
+            QMessageBox.warning(self, 'Warning', 'Please add at least one loan to the table')
+            return None
 
-            # Create DataFrame from manual entry
+        try:
             import pandas as pd
-            import numpy as np
 
             loans = []
-            for row in range(self.manual_loans_table.rowCount()):
-                name = self.manual_loans_table.item(row, 0).text()
-                principal = float(self.manual_loans_table.item(row, 1).text().replace('$', '').replace(',', ''))
-                min_payment = float(self.manual_loans_table.item(row, 2).text().replace('$', '').replace(',', ''))
-                interest = float(self.manual_loans_table.item(row, 3).text().replace('%', ''))
+            for row in range(self.loans_table.rowCount()):
+                loan_num = self.loans_table.item(row, 0).text()
+                description = self.loans_table.item(row, 1).text()
+                loan_type = self.loans_table.item(row, 2).text()
+                term = self.loans_table.item(row, 3).text()
+                principal = float(self.loans_table.item(row, 4).text().replace(',', ''))
+                min_payment = float(self.loans_table.item(row, 5).text().replace(',', ''))
+                interest_rate = float(self.loans_table.item(row, 6).text())
 
                 loans.append({
-                    'Loan Number': row + 1,
-                    'Description': name,
-                    'Loan Type': 'Manual',
-                    'Term': 0,
+                    'Loan Number': int(loan_num) if loan_num.isdigit() else row + 1,
+                    'Description': description,
+                    'Loan Type': loan_type,
+                    'Term': int(term) if term.isdigit() else 0,
                     'Principal': principal,
                     'Min Payment': min_payment,
-                    'Interest Rate': interest
+                    'Interest Rate': interest_rate
                 })
 
             data = pd.DataFrame(loans)
             self.calculator.loan_data = data
             return data
+
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'Error reading table data: {str(e)}')
+            return None
 
     def calculate(self):
         """Run the calculations."""
@@ -798,16 +838,15 @@ class LoanCalculatorApp(QMainWindow):
             self.statusBar.showMessage(f'Export failed: {str(e)}')
 
     def clear_form(self):
-        """Clear all form fields."""
+        """Clear all form fields and tables."""
         self.file_input.clear()
-        self.file_status.setText('')
         self.max_payment.setValue(2000)
-        self.loan_name_input.clear()
+        self.loan_description_input.clear()
+        self.loan_type_input.clear()
         self.principal_input.setValue(0)
         self.min_payment_input.setValue(0)
         self.interest_rate_input.setValue(0)
-        self.manual_loans_table.setRowCount(0)
-        self.manual_status.setText('No loans added yet')
+        self.loans_table.setRowCount(0)
         for checkbox in self.strategy_checks.values():
             checkbox.setChecked(True)
         self.results_title.setVisible(False)
