@@ -308,17 +308,16 @@ class LoanCalculator:
 
     def _create_payment_summary(self, strategy_key: str) -> pd.DataFrame:
         """
-        Create a user-friendly payment summary showing principal payments per loan.
+        Create a user-friendly payment summary showing TOTAL payments (principal + interest) per loan.
 
-        Exports the payment allocation showing principal reduction for each loan each month.
-        To get total amount you pay:
-        - Add interest_tally[month] to the month's principal total
+        This shows what the user actually pays to each loan provider each month.
+        Total for each month equals the max_monthly_payment.
 
         Args:
             strategy_key: Key of the strategy to summarize
 
         Returns:
-            DataFrame with principal payments per loan per month + summary rows for interest and totals
+            DataFrame with total payments (principal + interest) per loan per month
         """
         result = self.results[strategy_key]
         payment_table = result['payment_table'].copy()
@@ -328,35 +327,46 @@ class LoanCalculator:
         # Get month columns
         month_cols = [col for col in payment_table.columns if col.startswith('Month')]
 
-        # Create output - start with the payment table as-is
-        output_df = payment_table.copy()
+        # Get loan numbers from payment table
+        loan_numbers = payment_table['loanNumber'].values
 
-        # Add summary rows at the bottom
-        summary_rows = []
+        # Get interest rates and initial balances from loan data
+        interest_rates = pd.to_numeric(self.loan_data.iloc[:, 6]).values / 100 / 12  # Monthly rates
+        principal_balances = pd.to_numeric(self.loan_data.iloc[:, 4]).values.copy().astype(float)
 
-        # Add principal totals row
-        principal_totals = {}
-        principal_totals['loanNumber'] = 'PRINCIPAL TOTAL'
+        # Create output with total payments (principal + interest) for each loan
+        output_columns = {'loanNumber': loan_numbers}
+
+        # For each month, calculate total payment (principal + interest) per loan
+        for month_idx, month_col in enumerate(month_cols):
+            principal_payments = payment_table[month_col].values
+
+            # Calculate interest accrued for each loan this month
+            interest_per_loan = interest_rates * principal_balances
+
+            # Total payment per loan = principal + interest
+            total_payments_per_loan = principal_payments + interest_per_loan
+
+            output_columns[month_col] = total_payments_per_loan
+
+            # Update principal balances for next month
+            principal_balances = principal_balances - principal_payments
+            principal_balances[principal_balances < 0.01] = 0  # Handle floating point errors
+
+        # Create output dataframe
+        output_df = pd.DataFrame(output_columns)
+
+        # Add summary row with total paid each month
+        summary_row = {'loanNumber': 'TOTAL PAID'}
         for month_col in month_cols:
-            principal_totals[month_col] = payment_table[month_col].sum()
-        summary_rows.append(principal_totals)
+            summary_row[month_col] = None
 
-        # Add interest row
-        interest_row = {}
-        interest_row['loanNumber'] = 'INTEREST ACCRUED'
+        # Fill in the monthly totals
         for month_idx, month_col in enumerate(month_cols):
-            interest_row[month_col] = interest_tally[month_idx]
-        summary_rows.append(interest_row)
+            summary_row[month_col] = monthly_payments[month_idx]
 
-        # Add total payment row
-        total_row = {}
-        total_row['loanNumber'] = 'TOTAL PAYMENT'
-        for month_idx, month_col in enumerate(month_cols):
-            total_row[month_col] = monthly_payments[month_idx]
-        summary_rows.append(total_row)
-
-        # Append summary rows
-        summary_df = pd.DataFrame(summary_rows)
+        # Append summary row
+        summary_df = pd.DataFrame([summary_row])
         output_df = pd.concat([output_df, summary_df], ignore_index=True)
 
         return output_df
