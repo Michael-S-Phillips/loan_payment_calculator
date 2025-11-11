@@ -361,8 +361,8 @@ class LoanCalculatorApp(QMainWindow):
         """Create unified loan data section with editable table."""
         # Guidance
         guidance = QLabel(
-            'Enter your loan information below. You can either upload a file or manually add loans to the table.\n'
-            'All fields are editable. Required columns: Principal Balance, Minimum Monthly Payment, Annual Interest Rate %'
+            'Enter your loan information below. You can either upload a file, generate a template to fill in, or manually add loans to the table.\n'
+            'All table fields are editable. Required columns: Principal Balance, Minimum Monthly Payment, Annual Interest Rate %'
         )
         guidance.setObjectName('guidance_box')
         parent_layout.addWidget(guidance)
@@ -372,8 +372,8 @@ class LoanCalculatorApp(QMainWindow):
         # File upload section
         file_layout = QHBoxLayout()
 
-        template_btn = QPushButton('Download Template')
-        template_btn.clicked.connect(self.download_template)
+        template_btn = QPushButton('Generate Template')
+        template_btn.clicked.connect(self.generate_template)
         file_layout.addWidget(template_btn)
 
         file_layout.addWidget(QLabel('Or upload:'))
@@ -466,8 +466,8 @@ class LoanCalculatorApp(QMainWindow):
 
         parent_layout.addLayout(button_layout)
 
-    def download_template(self):
-        """Download template file."""
+    def generate_template(self):
+        """Generate a template file."""
         try:
             filepath, _ = QFileDialog.getSaveFileName(
                 self, 'Save Template File', 'loan_template.xlsx', 'Excel Files (*.xlsx)'
@@ -475,7 +475,7 @@ class LoanCalculatorApp(QMainWindow):
             if filepath:
                 self.calculator.create_template_file(filepath)
                 QMessageBox.information(self, 'Success', f'Template file created:\n{filepath}')
-                self.statusBar.showMessage('Template file downloaded')
+                self.statusBar.showMessage('Template file generated')
         except Exception as e:
             QMessageBox.critical(self, 'Error', f'Error creating template: {str(e)}')
 
