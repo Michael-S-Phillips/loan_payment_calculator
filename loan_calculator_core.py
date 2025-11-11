@@ -551,6 +551,12 @@ def minimize_accrued_interest(
         else:
             raise ValueError('payment_case must be 0 or 1')
 
+        # If sum of minimums exceeds budget, scale them down proportionally
+        sum_min = np.sum(active_min_payments)
+        if sum_min > mpp:
+            scale_factor = mpp / sum_min
+            active_min_payments = active_min_payments * scale_factor
+
         # Use optimization to minimize total accrued interest for next month
         # Minimize: sum((balance - payment) * rate)
         # Which is equivalent to: maximize sum(payment * rate) since balance is constant
