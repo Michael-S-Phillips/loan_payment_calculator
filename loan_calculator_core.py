@@ -156,7 +156,8 @@ def high_interest_first(
     min_monthly_payments: np.ndarray
 ) -> Tuple[int, pd.DataFrame, List[float], List[float]]:
     """
-    Payment strategy: Focus extra payments on the loan with highest interest rate.
+    Payment strategy: Focus extra payments on the loan with highest accrued interest.
+    Accrued interest = interest_rate * principal_balance.
     This minimizes total interest paid over the life of all loans.
     """
     BALANCE_TOLERANCE = 0.01
@@ -202,14 +203,14 @@ def high_interest_first(
         else:
             raise ValueError('payment_case must be 0 or 1')
 
-        # Find loan with highest interest rate (not accrued amount)
-        max_interest_idx = np.argmax(active_rates)
+        # Find loan with highest accrued interest (rate * balance)
+        max_interest_idx = np.argmax(accrued_interest)
 
-        # Send all extra to highest interest rate loan
+        # Distribute extra as equal share, but give all of it to max accrued interest loan
         num_active = np.sum(active_idx)
-        extra_available = mpp - np.sum(active_min_payments)
+        extra_dollars = np.ones(num_active) * (mpp - np.sum(active_min_payments)) / num_active
         principal_payment = active_min_payments.copy()
-        principal_payment[max_interest_idx] += extra_available
+        principal_payment[max_interest_idx] += np.sum(extra_dollars)
 
         # Handle overpayments
         for j in range(len(principal_payment)):
@@ -499,10 +500,12 @@ def minimize_accrued_interest(
     min_monthly_payments: np.ndarray
 ) -> Tuple[int, pd.DataFrame, List[float], List[float]]:
     """
-    Payment strategy: Minimize monthly accrued interest.
-    Focuses extra payments on the loan that accrues the most interest each month
-    (interest_rate * principal_balance). This reduces the interest burden most rapidly.
+    Payment strategy: Minimize total accrued interest for the next month.
+    Uses optimization to find the payment allocation that minimizes
+    sum((principal_balance - payment) * interest_rate) subject to constraints.
     """
+    from scipy.optimize import linprog
+
     BALANCE_TOLERANCE = 0.01
     MAX_ITERATIONS = 600
 
@@ -531,7 +534,6 @@ def minimize_accrued_interest(
         active_min_payments = min_monthly_payments[active_idx]
 
         pay_remainder = 0
-
         accrued_interest = active_rates * active_principal
 
         if payment_case == 0:
@@ -546,14 +548,33 @@ def minimize_accrued_interest(
         else:
             raise ValueError('payment_case must be 0 or 1')
 
-        # Find loan with highest accrued interest (rate * balance)
-        # This minimizes monthly interest accrual most rapidly
-        max_accrued_idx = np.argmax(accrued_interest)
+        # Use optimization to minimize total accrued interest for next month
+        # Minimize: sum((balance - payment) * rate)
+        # Which is equivalent to: maximize sum(payment * rate) since balance is constant
+        # Constraints: sum(payment) <= mpp, payment >= min_payment, payment <= balance
 
-        # Send all extra to the loan accruing the most interest
-        extra_available = mpp - np.sum(active_min_payments)
-        principal_payment = active_min_payments.copy()
-        principal_payment[max_accrued_idx] += extra_available
+        num_active = len(active_principal)
+
+        # Objective: minimize sum((active_principal - payment) * active_rates)
+        # = minimize sum(active_principal * active_rates) - sum(payment * active_rates)
+        # The constant doesn't matter, so minimize -sum(payment * active_rates)
+        # Which is maximize sum(payment * active_rates)
+        c = -active_rates  # Negative because linprog minimizes
+
+        # Constraint 1: sum(payment) <= mpp
+        A_ub = np.ones((1, num_active))
+        b_ub = np.array([mpp])
+
+        # Bounds: payment[i] >= min_payment[i] and payment[i] <= principal[i]
+        bounds = [(active_min_payments[i], active_principal[i]) for i in range(num_active)]
+
+        # Solve
+        result = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
+
+        if not result.success:
+            raise ValueError(f'Optimization failed: {result.message}')
+
+        principal_payment = result.x
 
         # Handle overpayments
         for j in range(len(principal_payment)):
