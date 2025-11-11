@@ -7,6 +7,4 @@ dependencies:
   - pandas
   - numpy
   - openpyxl
-  - pip
-  - pip:
-    - PySimpleGUI>=4.60.0
+  - pyqt=5

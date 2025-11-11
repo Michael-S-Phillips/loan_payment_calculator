@@ -1,353 +1,403 @@
 """
-PySimpleGUI application for loan payment calculator.
+PyQt5 application for loan payment calculator.
 
-Provides an intuitive interface for loading loan data, running calculations,
+Provides a professional interface for loading loan data, running calculations,
 and exporting results.
 """
 
-import PySimpleGUI as sg
-import os
 import sys
-from loan_calculator import LoanCalculator
+import os
 from pathlib import Path
 import traceback
+from typing import Optional
+
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QLineEdit, QPushButton, QFileDialog, QTableWidget, QTableWidgetItem,
+    QCheckBox, QRadioButton, QButtonGroup, QSpinBox, QDoubleSpinBox,
+    QMessageBox, QStatusBar, QGroupBox, QGridLayout, QScrollArea
+)
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QFont, QColor
+
+from loan_calculator import LoanCalculator
 
 
-class LoanCalculatorGUI:
-    """GUI application for loan payment calculator."""
+class LoanCalculatorApp(QMainWindow):
+    """Main application window for Loan Payment Calculator."""
 
     def __init__(self):
-        """Initialize the GUI application."""
-        # Configure PySimpleGUI theme
-        sg.theme('DarkBlue3')
-        sg.set_options(font=('Helvetica', 10))
-
+        """Initialize the application."""
+        super().__init__()
         self.calculator = LoanCalculator()
         self.current_file = None
         self.calculation_results = None
+        self.init_ui()
 
-    def create_window(self):
-        """Create the main application window."""
+    def init_ui(self):
+        """Initialize the user interface."""
+        self.setWindowTitle('Loan Payment Calculator')
+        self.setGeometry(100, 100, 1000, 900)
 
-        # Define the layout
-        layout = [
-            # Title bar
-            [sg.Text('Loan Payment Calculator', font=('Helvetica', 16, 'bold'), justification='center')],
-            [sg.Text('Compare different loan repayment strategies', font=('Helvetica', 10), justification='center', text_color='gray')],
-            [sg.Text('_' * 80)],
+        # Create central widget and main layout
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout()
+        central_widget.setLayout(main_layout)
 
-            # File selection section
-            [sg.Text('Step 1: Load Loan Data', font=('Helvetica', 12, 'bold'))],
-            [
-                sg.Text('Input File:'),
-                sg.InputText(key='-FILE-', size=(40, 1), disabled=True),
-                sg.FileBrowse(
-                    button_text='Browse',
-                    file_types=(
-                        ('All Files', '*.*'),
-                        ('Excel', '*.xlsx'),
-                        ('Excel', '*.xls'),
-                        ('CSV', '*.csv'),
-                        ('TSV', '*.tsv'),
-                        ('Text', '*.txt'),
-                    ),
-                    key='-FILE_BROWSE-'
-                )
-            ],
-            [sg.Button('Load File', key='-LOAD-'), sg.Text('', key='-FILE_STATUS-', text_color='green')],
+        # Title
+        title = QLabel('Loan Payment Calculator')
+        title_font = QFont()
+        title_font.setPointSize(16)
+        title_font.setBold(True)
+        title.setFont(title_font)
+        title.setAlignment(Qt.AlignCenter)
+        main_layout.addWidget(title)
 
-            [sg.Text('_' * 80)],
+        subtitle = QLabel('Compare different loan repayment strategies')
+        subtitle.setAlignment(Qt.AlignCenter)
+        subtitle.setStyleSheet('color: gray; font-size: 10px;')
+        main_layout.addWidget(subtitle)
 
-            # Calculation parameters section
-            [sg.Text('Step 2: Set Payment Parameters', font=('Helvetica', 12, 'bold'))],
-            [
-                sg.Text('Maximum Monthly Payment:'),
-                sg.InputText(key='-MAX_PAYMENT-', size=(15, 1), default_text='2000'),
-                sg.Text('(total amount available each month)')
-            ],
-            [
-                sg.Text('Payment Case:'),
-                sg.Radio(
-                    'Fixed total payment (payment covers interest + principal)',
-                    'payment_case',
-                    default=True,
-                    key='-CASE_0-'
-                )
-            ],
-            [
-                sg.Text(''),
-                sg.Radio(
-                    'Fixed principal payment (total = interest + fixed amount)',
-                    'payment_case',
-                    key='-CASE_1-'
-                )
-            ],
+        main_layout.addSpacing(10)
 
-            [sg.Text('_' * 80)],
+        # Step 1: Load Data
+        section1_title = QLabel('Step 1: Load Loan Data')
+        section1_title_font = QFont()
+        section1_title_font.setPointSize(12)
+        section1_title_font.setBold(True)
+        section1_title.setFont(section1_title_font)
+        main_layout.addWidget(section1_title)
 
-            # Strategy selection section
-            [sg.Text('Step 3: Select Strategies', font=('Helvetica', 12, 'bold'))],
-            [
-                sg.Checkbox('Even Payments', key='-EVEN-', default=True),
-                sg.Checkbox('High Interest First', key='-HIGH_INT-', default=True)
-            ],
-            [
-                sg.Checkbox('High Balance First', key='-HIGH_BAL-', default=True),
-                sg.Checkbox('Minimize Interest', key='-MIN_INT-', default=True)
-            ],
-            [
-                sg.Checkbox('Snowball Method', key='-SNOWBALL-', default=True)
-            ],
+        file_layout = QHBoxLayout()
+        file_layout.addWidget(QLabel('Input File:'))
+        self.file_input = QLineEdit()
+        self.file_input.setReadOnly(True)
+        file_layout.addWidget(self.file_input)
+        self.browse_btn = QPushButton('Browse')
+        self.browse_btn.clicked.connect(self.browse_file)
+        file_layout.addWidget(self.browse_btn)
+        main_layout.addLayout(file_layout)
 
-            [sg.Text('_' * 80)],
+        load_layout = QHBoxLayout()
+        self.load_btn = QPushButton('Load File')
+        self.load_btn.clicked.connect(self.load_file)
+        load_layout.addWidget(self.load_btn)
+        self.file_status = QLabel('')
+        self.file_status.setStyleSheet('color: green;')
+        load_layout.addWidget(self.file_status)
+        load_layout.addStretch()
+        main_layout.addLayout(load_layout)
 
-            # Action buttons
-            [
-                sg.Button('Calculate', key='-CALCULATE-', size=(12, 1), button_color=('white', 'green')),
-                sg.Button('Export Summary', key='-EXPORT_SUMMARY-', size=(15, 1), disabled=True),
-                sg.Button('Export Detailed', key='-EXPORT_DETAILED-', size=(15, 1), disabled=True),
-                sg.Button('Clear', key='-CLEAR-', size=(8, 1)),
-                sg.Button('Exit', key='-EXIT-', size=(8, 1))
-            ],
+        main_layout.addSpacing(10)
 
-            [sg.Text('_' * 80)],
+        # Step 2: Parameters
+        section2_title = QLabel('Step 2: Set Payment Parameters')
+        section2_title.setFont(section1_title_font)
+        main_layout.addWidget(section2_title)
 
-            # Results section
-            [sg.Text('Results Summary', font=('Helvetica', 12, 'bold'), key='-RESULTS_TITLE-', visible=False)],
-            [
-                sg.Table(
-                    values=[],
-                    headings=['Strategy', 'Months', 'Total Cost', 'Total Interest'],
-                    max_col_widths=[25, 10, 15, 15],
-                    auto_size_columns=False,
-                    num_rows=6,
-                    key='-RESULTS_TABLE-',
-                    visible=False,
-                    row_height=20
-                )
-            ],
+        params_layout = QGridLayout()
 
-            # Status bar
-            [sg.Text('Ready', key='-STATUS-', text_color='black', font=('Helvetica', 9))]
+        params_layout.addWidget(QLabel('Maximum Monthly Payment:'), 0, 0)
+        self.max_payment = QDoubleSpinBox()
+        self.max_payment.setValue(2000)
+        self.max_payment.setMinimum(0)
+        self.max_payment.setMaximum(999999)
+        params_layout.addWidget(self.max_payment, 0, 1)
+        params_layout.addWidget(QLabel('(total amount available each month)'), 0, 2)
+
+        params_layout.addWidget(QLabel('Payment Case:'), 1, 0)
+        self.payment_case_group = QButtonGroup()
+        self.case0_radio = QRadioButton('Fixed total payment (payment covers interest + principal)')
+        self.case0_radio.setChecked(True)
+        self.case1_radio = QRadioButton('Fixed principal payment (total = interest + fixed amount)')
+        self.payment_case_group.addButton(self.case0_radio, 0)
+        self.payment_case_group.addButton(self.case1_radio, 1)
+        params_layout.addWidget(self.case0_radio, 2, 0, 1, 3)
+        params_layout.addWidget(self.case1_radio, 3, 0, 1, 3)
+
+        main_layout.addLayout(params_layout)
+        main_layout.addSpacing(10)
+
+        # Step 3: Strategies
+        section3_title = QLabel('Step 3: Select Strategies')
+        section3_title.setFont(section1_title_font)
+        main_layout.addWidget(section3_title)
+
+        strategy_layout = QGridLayout()
+        self.strategy_checks = {}
+        strategies = [
+            ('even', 'Even Payments'),
+            ('high_interest', 'High Interest First'),
+            ('high_balance', 'High Balance First'),
+            ('minimize_interest', 'Minimize Interest'),
+            ('snowball', 'Snowball Method')
         ]
 
-        window = sg.Window(
-            'Loan Payment Calculator',
-            layout,
-            size=(900, 900),
-            finalize=True,
-            font=('Helvetica', 10)
-        )
+        for i, (key, label) in enumerate(strategies):
+            checkbox = QCheckBox(label)
+            checkbox.setChecked(True)
+            self.strategy_checks[key] = checkbox
+            strategy_layout.addWidget(checkbox, i // 2, i % 2)
 
-        return window
+        main_layout.addLayout(strategy_layout)
+        main_layout.addSpacing(10)
 
-    def format_currency(self, value):
-        """Format value as currency string."""
-        return f"${value:,.2f}"
+        # Action buttons
+        button_layout = QHBoxLayout()
+        self.calculate_btn = QPushButton('Calculate')
+        self.calculate_btn.clicked.connect(self.calculate)
+        self.calculate_btn.setStyleSheet('background-color: green; color: white; font-weight: bold;')
+        button_layout.addWidget(self.calculate_btn)
 
-    def format_number(self, value):
-        """Format as number with commas."""
-        return f"{value:,.0f}"
+        self.export_summary_btn = QPushButton('Export Summary')
+        self.export_summary_btn.clicked.connect(self.export_summary)
+        self.export_summary_btn.setEnabled(False)
+        button_layout.addWidget(self.export_summary_btn)
 
-    def update_status(self, message, color='black'):
-        """Update status bar message."""
-        self.window['-STATUS-'].update(message, text_color=color)
+        self.export_detailed_btn = QPushButton('Export Detailed')
+        self.export_detailed_btn.clicked.connect(self.export_detailed)
+        self.export_detailed_btn.setEnabled(False)
+        button_layout.addWidget(self.export_detailed_btn)
 
-    def display_results(self, results):
-        """Display calculation results in the results table."""
-        if not results:
-            sg.popup_error('No results to display')
+        self.clear_btn = QPushButton('Clear')
+        self.clear_btn.clicked.connect(self.clear_form)
+        button_layout.addWidget(self.clear_btn)
+
+        self.exit_btn = QPushButton('Exit')
+        self.exit_btn.clicked.connect(self.close)
+        button_layout.addWidget(self.exit_btn)
+
+        main_layout.addLayout(button_layout)
+        main_layout.addSpacing(10)
+
+        # Results section
+        results_title = QLabel('Results Summary')
+        results_title.setFont(section1_title_font)
+        results_title.setVisible(False)
+        self.results_title = results_title
+        main_layout.addWidget(results_title)
+
+        self.results_table = QTableWidget()
+        self.results_table.setColumnCount(4)
+        self.results_table.setHorizontalHeaderLabels(['Strategy', 'Months', 'Total Cost', 'Total Interest'])
+        self.results_table.setRowCount(0)
+        self.results_table.setVisible(False)
+        self.results_table.resizeColumnsToContents()
+        main_layout.addWidget(self.results_table)
+
+        main_layout.addStretch()
+
+        # Status bar
+        self.statusBar = QStatusBar()
+        self.setStatusBar(self.statusBar)
+        self.statusBar.showMessage('Ready')
+
+    def browse_file(self):
+        """Browse for a loan data file."""
+        file_filter = 'All Files (*);;Excel Files (*.xlsx *.xls);;CSV Files (*.csv);;TSV Files (*.tsv);;Text Files (*.txt)'
+        filepath, _ = QFileDialog.getOpenFileName(self, 'Load Loan Data', '', file_filter)
+        if filepath:
+            self.file_input.setText(filepath)
+
+    def load_file(self):
+        """Load the selected file."""
+        filepath = self.file_input.text()
+        if not filepath:
+            QMessageBox.warning(self, 'Warning', 'Please select a file')
+            return
+
+        try:
+            self.calculator.load_data(filepath)
+            is_valid, error = self.calculator.validate_data()
+
+            if not is_valid:
+                QMessageBox.critical(self, 'Invalid Data', f'Error: {error}')
+                self.statusBar.showMessage(f'Error: {error}')
+                return
+
+            self.current_file = filepath
+            filename = Path(filepath).name
+            self.file_status.setText('✓ Loaded')
+            self.statusBar.showMessage(f'Loaded: {filename}')
+
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'Error loading file: {str(e)}')
+            self.statusBar.showMessage(f'Error: {str(e)}')
+
+    def calculate(self):
+        """Run the calculations."""
+        if not self.current_file:
+            QMessageBox.warning(self, 'Warning', 'Please load a file first')
+            return
+
+        try:
+            # Get parameters
+            max_payment = float(self.max_payment.value())
+            if max_payment <= 0:
+                QMessageBox.warning(self, 'Warning', 'Maximum monthly payment must be greater than 0')
+                return
+
+            payment_case = self.payment_case_group.checkedId()
+
+            # Get selected strategies
+            strategies = [key for key, checkbox in self.strategy_checks.items() if checkbox.isChecked()]
+
+            if not strategies:
+                QMessageBox.warning(self, 'Warning', 'Please select at least one strategy')
+                return
+
+            self.statusBar.showMessage('Calculating... Please wait')
+            QApplication.processEvents()
+
+            # Run calculations
+            self.calculation_results = self.calculator.calculate(
+                max_monthly_payment=max_payment,
+                payment_case=payment_case,
+                strategies=strategies
+            )
+
+            # Display results
+            self.display_results()
+
+            # Enable export buttons
+            self.export_summary_btn.setEnabled(True)
+            self.export_detailed_btn.setEnabled(True)
+
+        except ValueError as e:
+            QMessageBox.critical(self, 'Calculation Error', f'Error: {str(e)}')
+            self.statusBar.showMessage(f'Error: {str(e)}')
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'Unexpected error: {str(e)}\n\n{traceback.format_exc()}')
+            self.statusBar.showMessage(f'Error: {str(e)}')
+
+    def display_results(self):
+        """Display calculation results in the table."""
+        if not self.calculation_results:
+            QMessageBox.critical(self, 'Error', 'No results to display')
             return
 
         try:
             summary = self.calculator.get_summary()
 
-            # Prepare table data
-            table_data = []
-            for idx, (strategy, row) in enumerate(summary.iterrows()):
-                table_data.append([
-                    strategy,
-                    f"{row['Months to Payoff']:.0f}",
-                    self.format_currency(row['Total Cost']),
-                    self.format_currency(row['Total Interest'])
-                ])
+            # Set up table
+            self.results_table.setRowCount(len(summary))
+            self.results_table.setColumnCount(4)
 
-            # Update table visibility and data
-            self.window['-RESULTS_TITLE-'].update(visible=True)
-            self.window['-RESULTS_TABLE-'].update(values=table_data, visible=True)
+            row = 0
+            for strategy, row_data in summary.iterrows():
+                # Strategy name
+                item = QTableWidgetItem(str(strategy))
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                self.results_table.setItem(row, 0, item)
 
-            self.update_status('Calculations complete!', 'green')
+                # Months
+                item = QTableWidgetItem(f"{row_data['Months to Payoff']:.0f}")
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                item.setTextAlignment(Qt.AlignCenter)
+                self.results_table.setItem(row, 1, item)
+
+                # Total Cost
+                item = QTableWidgetItem(f"${row_data['Total Cost']:,.2f}")
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.results_table.setItem(row, 2, item)
+
+                # Total Interest
+                item = QTableWidgetItem(f"${row_data['Total Interest']:,.2f}")
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.results_table.setItem(row, 3, item)
+
+                row += 1
+
+            # Show results
+            self.results_title.setVisible(True)
+            self.results_table.setVisible(True)
+            self.results_table.resizeColumnsToContents()
+
+            self.statusBar.showMessage('Calculations complete!')
 
         except Exception as e:
-            sg.popup_error(f'Error displaying results: {str(e)}')
-            self.update_status(f'Error: {str(e)}', 'red')
+            QMessageBox.critical(self, 'Error', f'Error displaying results: {str(e)}')
+            self.statusBar.showMessage(f'Error: {str(e)}')
 
-    def run(self):
-        """Run the application event loop."""
-        self.window = self.create_window()
+    def export_summary(self):
+        """Export summary to file."""
+        if not self.calculation_results:
+            QMessageBox.warning(self, 'Warning', 'No results to export')
+            return
 
-        while True:
-            event, values = self.window.read()
+        try:
+            filepath, _ = QFileDialog.getSaveFileName(
+                self, 'Save Summary', '', 'Excel Files (*.xlsx);;CSV Files (*.csv)'
+            )
 
-            # Handle window close
-            if event == sg.WINDOW_CLOSED or event == '-EXIT-':
-                break
+            if filepath:
+                if not filepath.lower().endswith(('.xlsx', '.csv')):
+                    if filepath.endswith('.'):
+                        filepath = filepath[:-1] + '.xlsx'
+                    else:
+                        filepath += '.xlsx'
 
-            # Handle file load
-            if event == '-LOAD-':
-                filepath = values['-FILE_BROWSE-']
-                if not filepath:
-                    sg.popup_error('Please select a file')
-                    continue
+                self.calculator.export_summary(filepath)
+                QMessageBox.information(self, 'Success', f'Summary exported to:\n{filepath}')
+                self.statusBar.showMessage('Summary exported successfully')
 
-                try:
-                    self.calculator.load_data(filepath)
-                    is_valid, error = self.calculator.validate_data()
+        except Exception as e:
+            QMessageBox.critical(self, 'Export Error', f'Error: {str(e)}')
+            self.statusBar.showMessage(f'Export failed: {str(e)}')
 
-                    if not is_valid:
-                        sg.popup_error(f'Invalid data: {error}')
-                        self.update_status(f'Error loading file: {error}', 'red')
-                        continue
+    def export_detailed(self):
+        """Export detailed results to file."""
+        if not self.calculation_results:
+            QMessageBox.warning(self, 'Warning', 'No results to export')
+            return
 
-                    self.current_file = filepath
-                    filename = os.path.basename(filepath)
-                    self.window['-FILE-'].update(filename)
-                    self.window['-FILE_STATUS-'].update('✓ Loaded', text_color='green')
-                    self.update_status(f'Loaded: {filename}', 'green')
+        try:
+            filepath, _ = QFileDialog.getSaveFileName(
+                self, 'Save Detailed Results', '', 'Excel Files (*.xlsx);;CSV Files (*.csv)'
+            )
 
-                except Exception as e:
-                    sg.popup_error(f'Error loading file: {str(e)}')
-                    self.update_status(f'Error: {str(e)}', 'red')
+            if filepath:
+                if not filepath.lower().endswith(('.xlsx', '.csv')):
+                    if filepath.endswith('.'):
+                        filepath = filepath[:-1] + '.xlsx'
+                    else:
+                        filepath += '.xlsx'
 
-            # Handle calculate
-            if event == '-CALCULATE-':
-                if not self.current_file:
-                    sg.popup_error('Please load a file first')
-                    continue
+                self.calculator.export_detailed(filepath)
+                QMessageBox.information(self, 'Success', f'Detailed results exported to:\n{filepath}')
+                self.statusBar.showMessage('Detailed results exported successfully')
 
-                try:
-                    # Get parameters
-                    max_payment = float(values['-MAX_PAYMENT-'])
-                    if max_payment <= 0:
-                        sg.popup_error('Maximum monthly payment must be greater than 0')
-                        continue
+        except Exception as e:
+            QMessageBox.critical(self, 'Export Error', f'Error: {str(e)}')
+            self.statusBar.showMessage(f'Export failed: {str(e)}')
 
-                    payment_case = 0 if values['-CASE_0-'] else 1
-
-                    # Get selected strategies
-                    strategies = []
-                    if values['-EVEN-']:
-                        strategies.append('even')
-                    if values['-HIGH_INT-']:
-                        strategies.append('high_interest')
-                    if values['-HIGH_BAL-']:
-                        strategies.append('high_balance')
-                    if values['-MIN_INT-']:
-                        strategies.append('minimize_interest')
-                    if values['-SNOWBALL-']:
-                        strategies.append('snowball')
-
-                    if not strategies:
-                        sg.popup_error('Please select at least one strategy')
-                        continue
-
-                    # Run calculations
-                    self.update_status('Calculating... Please wait', 'blue')
-                    self.window.refresh()
-
-                    self.calculation_results = self.calculator.calculate(
-                        max_monthly_payment=max_payment,
-                        payment_case=payment_case,
-                        strategies=strategies
-                    )
-
-                    # Display results
-                    self.display_results(self.calculation_results)
-
-                    # Enable export buttons
-                    self.window['-EXPORT_SUMMARY-'].update(disabled=False)
-                    self.window['-EXPORT_DETAILED-'].update(disabled=False)
-
-                except ValueError as e:
-                    sg.popup_error(f'Calculation error: {str(e)}')
-                    self.update_status(f'Error: {str(e)}', 'red')
-                except Exception as e:
-                    sg.popup_error(f'Unexpected error: {str(e)}\n\n{traceback.format_exc()}')
-                    self.update_status(f'Error: {str(e)}', 'red')
-
-            # Handle export summary
-            if event == '-EXPORT_SUMMARY-':
-                if not self.calculation_results:
-                    sg.popup_error('No results to export')
-                    continue
-
-                try:
-                    filepath = sg.popup_get_file(
-                        'Save summary as:',
-                        save_as=True,
-                        file_types=(('Excel', '*.xlsx'), ('CSV', '*.csv'))
-                    )
-
-                    if filepath:
-                        self.calculator.export_summary(filepath)
-                        sg.popup_ok(f'Summary exported to:\n{filepath}')
-                        self.update_status('Summary exported successfully', 'green')
-
-                except Exception as e:
-                    sg.popup_error(f'Export error: {str(e)}')
-                    self.update_status(f'Export failed: {str(e)}', 'red')
-
-            # Handle export detailed
-            if event == '-EXPORT_DETAILED-':
-                if not self.calculation_results:
-                    sg.popup_error('No results to export')
-                    continue
-
-                try:
-                    filepath = sg.popup_get_file(
-                        'Save detailed results as:',
-                        save_as=True,
-                        file_types=(('Excel', '*.xlsx'), ('CSV', '*.csv'))
-                    )
-
-                    if filepath:
-                        self.calculator.export_detailed(filepath)
-                        sg.popup_ok(f'Detailed results exported to:\n{filepath}')
-                        self.update_status('Detailed results exported successfully', 'green')
-
-                except Exception as e:
-                    sg.popup_error(f'Export error: {str(e)}')
-                    self.update_status(f'Export failed: {str(e)}', 'red')
-
-            # Handle clear
-            if event == '-CLEAR-':
-                self.window['-FILE-'].update('')
-                self.window['-FILE_STATUS-'].update('')
-                self.window['-FILE_BROWSE-'].update('')
-                self.window['-MAX_PAYMENT-'].update('2000')
-                self.window['-CASE_0-'].update(True)
-                self.window['-CASE_1-'].update(False)
-                self.window['-EVEN-'].update(True)
-                self.window['-HIGH_INT-'].update(True)
-                self.window['-HIGH_BAL-'].update(True)
-                self.window['-MIN_INT-'].update(True)
-                self.window['-SNOWBALL-'].update(True)
-                self.window['-RESULTS_TITLE-'].update(visible=False)
-                self.window['-RESULTS_TABLE-'].update(values=[], visible=False)
-                self.window['-EXPORT_SUMMARY-'].update(disabled=True)
-                self.window['-EXPORT_DETAILED-'].update(disabled=True)
-                self.current_file = None
-                self.calculation_results = None
-                self.update_status('Cleared', 'black')
-
-        self.window.close()
+    def clear_form(self):
+        """Clear all form fields."""
+        self.file_input.clear()
+        self.file_status.setText('')
+        self.max_payment.setValue(2000)
+        self.case0_radio.setChecked(True)
+        for checkbox in self.strategy_checks.values():
+            checkbox.setChecked(True)
+        self.results_title.setVisible(False)
+        self.results_table.setVisible(False)
+        self.export_summary_btn.setEnabled(False)
+        self.export_detailed_btn.setEnabled(False)
+        self.current_file = None
+        self.calculation_results = None
+        self.statusBar.showMessage('Cleared')
 
 
 def main():
     """Entry point for the application."""
     try:
-        app = LoanCalculatorGUI()
-        app.run()
+        app = QApplication(sys.argv)
+        window = LoanCalculatorApp()
+        window.show()
+        sys.exit(app.exec_())
     except Exception as e:
         print(f"Fatal error: {str(e)}")
         traceback.print_exc()

@@ -5,7 +5,7 @@ A professional Python application for comparing different loan repayment strateg
 ## Features
 
 - **Multiple Strategies**: Compare 5 different payment allocation methods
-- **Intuitive GUI**: User-friendly PySimpleGUI interface
+- **Professional GUI**: Professional PyQt5-based interface
 - **Flexible Input**: Load data from Excel, CSV, TSV, or text files
 - **Detailed Results**: View month-by-month payment plans and summaries
 - **Export Options**: Save results to Excel or CSV format
