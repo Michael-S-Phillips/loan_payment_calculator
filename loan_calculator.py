@@ -306,9 +306,66 @@ class LoanCalculator:
         except Exception as e:
             raise ValueError(f"Error exporting summary: {str(e)}")
 
+    def _create_payment_summary(self, strategy_key: str) -> pd.DataFrame:
+        """
+        Create a user-friendly payment summary showing principal payments per loan.
+
+        Exports the payment allocation showing principal reduction for each loan each month.
+        To get total amount you pay:
+        - Add interest_tally[month] to the month's principal total
+
+        Args:
+            strategy_key: Key of the strategy to summarize
+
+        Returns:
+            DataFrame with principal payments per loan per month + summary rows for interest and totals
+        """
+        result = self.results[strategy_key]
+        payment_table = result['payment_table'].copy()
+        interest_tally = result['interest_tally']
+        monthly_payments = result['monthly_payments']
+
+        # Get month columns
+        month_cols = [col for col in payment_table.columns if col.startswith('Month')]
+
+        # Create output - start with the payment table as-is
+        output_df = payment_table.copy()
+
+        # Add summary rows at the bottom
+        summary_rows = []
+
+        # Add principal totals row
+        principal_totals = {}
+        principal_totals['loanNumber'] = 'PRINCIPAL TOTAL'
+        for month_col in month_cols:
+            principal_totals[month_col] = payment_table[month_col].sum()
+        summary_rows.append(principal_totals)
+
+        # Add interest row
+        interest_row = {}
+        interest_row['loanNumber'] = 'INTEREST ACCRUED'
+        for month_idx, month_col in enumerate(month_cols):
+            interest_row[month_col] = interest_tally[month_idx]
+        summary_rows.append(interest_row)
+
+        # Add total payment row
+        total_row = {}
+        total_row['loanNumber'] = 'TOTAL PAYMENT'
+        for month_idx, month_col in enumerate(month_cols):
+            total_row[month_col] = monthly_payments[month_idx]
+        summary_rows.append(total_row)
+
+        # Append summary rows
+        summary_df = pd.DataFrame(summary_rows)
+        output_df = pd.concat([output_df, summary_df], ignore_index=True)
+
+        return output_df
+
     def export_detailed(self, filepath: str) -> None:
         """
         Export detailed results with payment tables for each strategy.
+        Shows actual total payments (principal + interest) per loan per month.
+        This is what you will actually pay to each loan provider each month.
         """
         if not self.results:
             raise ValueError("No results to export. Run calculations first.")
@@ -318,13 +375,15 @@ class LoanCalculator:
                 with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
                     # Export summary
                     if self.summary is not None:
-                        self.summary.to_excel(writer, sheet_name='Summary')
+                        self.summary.to_excel(writer, sheet_name='Summary', index=False)
 
-                    # Export details for each strategy
+                    # Export details for each strategy with actual payments
                     for strategy_key, result in self.results.items():
                         sheet_name = result['name'][:31]  # Excel sheet name limit
-                        payment_table = result['payment_table'].copy()
-                        payment_table.to_excel(writer, sheet_name=sheet_name, index=False)
+
+                        # Get payment summary (what you actually pay per loan per month)
+                        payment_summary = self._create_payment_summary(strategy_key)
+                        payment_summary.to_excel(writer, sheet_name=sheet_name, index=False)
 
             elif filepath.lower().endswith('.csv'):
                 # For CSV, just export summary
