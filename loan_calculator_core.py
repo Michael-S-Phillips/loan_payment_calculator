@@ -20,6 +20,31 @@ import pandas as pd
 from typing import Tuple, List
 
 
+def _enforce_minimum_payments(min_payments: np.ndarray, available_budget: float) -> np.ndarray:
+    """
+    Enforce minimum payment constraints.
+
+    If sum of minimum payments exceeds available budget, scale them down proportionally
+    to ensure all minimum payments can be made while staying within budget.
+
+    Args:
+        min_payments: Array of minimum monthly payment amounts
+        available_budget: Total budget available for principal payments
+
+    Returns:
+        Adjusted minimum payments array (may be scaled down if sum exceeded budget)
+    """
+    min_payments = min_payments.copy()
+    sum_min = np.sum(min_payments)
+
+    if sum_min > available_budget:
+        # Scale all minimum payments proportionally to fit budget
+        scale_factor = available_budget / sum_min
+        min_payments = min_payments * scale_factor
+
+    return min_payments
+
+
 def evenly_distributed_payments(
     max_monthly_payment: float,
     payment_case: int,
@@ -70,7 +95,7 @@ def evenly_distributed_payments(
         active_idx = principal_balances > BALANCE_TOLERANCE
         active_principal = principal_balances[active_idx]
         active_rates = interest_rates[active_idx]
-        active_min_payments = min_monthly_payments[active_idx]
+        active_min_payments = min_monthly_payments[active_idx].copy()
 
         pay_remainder = 0
 
@@ -92,9 +117,16 @@ def evenly_distributed_payments(
         else:
             raise ValueError('payment_case must be 0 or 1')
 
+        # CRITICAL: Enforce minimum payment constraints
+        active_min_payments = _enforce_minimum_payments(active_min_payments, mpp)
+
         # Distribute extra payment equally
         num_active = np.sum(active_idx)
-        extra_dollars = np.ones(num_active) * (mpp - np.sum(active_min_payments)) / num_active
+        extra_available = mpp - np.sum(active_min_payments)
+        if extra_available > 0:
+            extra_dollars = np.ones(num_active) * extra_available / num_active
+        else:
+            extra_dollars = np.zeros(num_active)
         principal_payment = active_min_payments + extra_dollars
 
         # Handle overpayments
@@ -158,7 +190,7 @@ def high_interest_first(
     """
     Payment strategy: Focus extra payments on the loan with highest accrued interest.
     Accrued interest = interest_rate * principal_balance.
-    This minimizes total interest paid over the life of all loans.
+    This minimizes total interest paid over the life of all loans (ish).
     """
     BALANCE_TOLERANCE = 0.01
     MAX_ITERATIONS = 600
@@ -203,12 +235,19 @@ def high_interest_first(
         else:
             raise ValueError('payment_case must be 0 or 1')
 
+        # CRITICAL: Enforce minimum payment constraints
+        active_min_payments = _enforce_minimum_payments(active_min_payments, mpp)
+
         # Find loan with highest accrued interest (rate * balance)
         max_interest_idx = np.argmax(accrued_interest)
 
         # Distribute extra as equal share, but give all of it to max accrued interest loan
         num_active = np.sum(active_idx)
-        extra_dollars = np.ones(num_active) * (mpp - np.sum(active_min_payments)) / num_active
+        extra_available = mpp - np.sum(active_min_payments)
+        if extra_available > 0:
+            extra_dollars = np.ones(num_active) * extra_available / num_active
+        else:
+            extra_dollars = np.zeros(num_active)
         principal_payment = active_min_payments.copy()
         principal_payment[max_interest_idx] += np.sum(extra_dollars)
 
@@ -314,12 +353,19 @@ def high_balance_first(
         else:
             raise ValueError('payment_case must be 0 or 1')
 
+        # CRITICAL: Enforce minimum payment constraints
+        active_min_payments = _enforce_minimum_payments(active_min_payments, mpp)
+
         # Find loan with highest balance
         max_balance_idx = np.argmax(active_principal)
 
         # Distribute extra to highest balance loan
         num_active = np.sum(active_idx)
-        extra_dollars = np.ones(num_active) * (mpp - np.sum(active_min_payments)) / num_active
+        extra_available = mpp - np.sum(active_min_payments)
+        if extra_available > 0:
+            extra_dollars = np.ones(num_active) * extra_available / num_active
+        else:
+            extra_dollars = np.zeros(num_active)
         principal_payment = active_min_payments.copy()
         principal_payment[max_balance_idx] += np.sum(extra_dollars)
 
@@ -425,12 +471,19 @@ def snowball_method(
         else:
             raise ValueError('payment_case must be 0 or 1')
 
+        # CRITICAL: Enforce minimum payment constraints
+        active_min_payments = _enforce_minimum_payments(active_min_payments, mpp)
+
         # Find loan with lowest balance
         min_balance_idx = np.argmin(active_principal)
 
         # Distribute extra to lowest balance loan
         num_active = np.sum(active_idx)
-        extra_dollars = np.ones(num_active) * (mpp - np.sum(active_min_payments)) / num_active
+        extra_available = mpp - np.sum(active_min_payments)
+        if extra_available > 0:
+            extra_dollars = np.ones(num_active) * extra_available / num_active
+        else:
+            extra_dollars = np.zeros(num_active)
         principal_payment = active_min_payments.copy()
         principal_payment[min_balance_idx] += np.sum(extra_dollars)
 
@@ -533,7 +586,7 @@ def minimize_accrued_interest(
         active_rates = interest_rates[active_idx]
         active_min_payments = min_monthly_payments[active_idx].copy()
 
-        # Ensure minimum payment doesn't exceed principal balance (matches MATLAB logic)
+        # Ensure minimum payment doesn't exceed principal balance for active loans
         active_min_payments[active_principal < active_min_payments] = active_principal[active_principal < active_min_payments]
 
         pay_remainder = 0
