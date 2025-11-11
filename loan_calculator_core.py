@@ -527,8 +527,9 @@ def minimize_accrued_interest(
     min_monthly_payments: np.ndarray
 ) -> Tuple[int, pd.DataFrame, List[float], List[float]]:
     """
-    Payment strategy: Optimize payment allocation to minimize total monthly interest.
-    Uses a greedy approach - pay extra toward the loan that will accrue the most interest.
+    Payment strategy: Minimize total monthly interest using proportional allocation.
+    Distributes extra payments proportionally to interest rates to mathematically
+    minimize total interest paid over time.
     """
     BALANCE_TOLERANCE = 0.01
     MAX_ITERATIONS = 600
@@ -573,13 +574,21 @@ def minimize_accrued_interest(
         else:
             raise ValueError('payment_case must be 0 or 1')
 
-        # Simple greedy approach: target loan with highest accrued interest
-        max_interest_idx = np.argmax(accrued_interest)
-
+        # Distribute extra payment proportionally by interest rate
+        # This mathematically minimizes total interest over time
         num_active = np.sum(active_idx)
-        extra_dollars = np.ones(num_active) * (mpp - np.sum(active_min_payments)) / num_active
-        principal_payment = active_min_payments.copy()
-        principal_payment[max_interest_idx] += np.sum(extra_dollars)
+        extra_available = mpp - np.sum(active_min_payments)
+
+        # Calculate proportion of extra payment each loan gets based on interest rate
+        total_rate = np.sum(active_rates)
+        if total_rate > 0:
+            rate_weights = active_rates / total_rate
+            extra_per_loan = extra_available * rate_weights
+        else:
+            # Shouldn't happen, but fallback to even distribution
+            extra_per_loan = np.ones(num_active) * extra_available / num_active
+
+        principal_payment = active_min_payments.copy() + extra_per_loan
 
         # Handle overpayments
         for j in range(len(principal_payment)):

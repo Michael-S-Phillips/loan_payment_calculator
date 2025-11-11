@@ -46,17 +46,34 @@ class CalculationWorker(QObject):
     def run(self):
         """Run the calculation."""
         try:
+            with open('/tmp/loan_calc_worker_debug.log', 'a') as f:
+                f.write("DEBUG: Worker.run() starting\n")
             self.progress.emit('Starting calculations...')
+            with open('/tmp/loan_calc_worker_debug.log', 'a') as f:
+                f.write(f"DEBUG: About to calculate with strategies: {self.strategies}\n")
             results = self.calculator.calculate(
                 max_monthly_payment=self.max_payment,
                 payment_case=0,  # Fixed total payment
                 strategies=self.strategies,
                 progress_callback=self.on_strategy_progress
             )
+            with open('/tmp/loan_calc_worker_debug.log', 'a') as f:
+                f.write(f"DEBUG: Calculation complete, got {len(results)} strategies\n")
+                f.write(f"DEBUG: About to emit results signal\n")
             self.results.emit(results)
+            with open('/tmp/loan_calc_worker_debug.log', 'a') as f:
+                f.write(f"DEBUG: Results signal emitted\n")
             self.progress.emit('Calculations complete!')
+            with open('/tmp/loan_calc_worker_debug.log', 'a') as f:
+                f.write(f"DEBUG: About to emit finished signal\n")
             self.finished.emit()
+            with open('/tmp/loan_calc_worker_debug.log', 'a') as f:
+                f.write(f"DEBUG: Finished signal emitted\n")
         except Exception as e:
+            with open('/tmp/loan_calc_worker_debug.log', 'a') as f:
+                f.write(f"DEBUG: Exception in worker: {e}\n")
+                import traceback
+                f.write(traceback.format_exc())
             self.error.emit(str(e))
             self.finished.emit()
 
@@ -737,10 +754,20 @@ class LoanCalculatorApp(QMainWindow):
 
     def on_calculation_complete(self, results):
         """Handle calculation completion."""
+        with open('/tmp/loan_calc_worker_debug.log', 'a') as f:
+            f.write(f"DEBUG: on_calculation_complete called with {len(results)} strategies\n")
         self.calculation_results = results
+        with open('/tmp/loan_calc_worker_debug.log', 'a') as f:
+            f.write(f"DEBUG: calculator.summary is not None: {self.calculator.summary is not None}\n")
+            f.write(f"DEBUG: calculator.results has {len(self.calculator.results)} items\n")
         self.display_results()
+        with open('/tmp/loan_calc_worker_debug.log', 'a') as f:
+            f.write(f"DEBUG: display_results() completed\n")
+            f.write(f"DEBUG: Enabling export buttons\n")
         self.export_summary_btn.setEnabled(True)
         self.export_detailed_btn.setEnabled(True)
+        with open('/tmp/loan_calc_worker_debug.log', 'a') as f:
+            f.write(f"DEBUG: Export buttons enabled: summary={self.export_summary_btn.isEnabled()}, detailed={self.export_detailed_btn.isEnabled()}\n")
 
     def on_calculation_error(self, error):
         """Handle calculation error."""
