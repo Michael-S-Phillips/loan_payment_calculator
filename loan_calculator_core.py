@@ -42,20 +42,32 @@ def evenly_distributed_payments(
     Returns:
         Tuple of (months, payment_table, monthly_payments, interest_tally)
     """
+    BALANCE_TOLERANCE = 0.01  # Consider balances < $0.01 as paid off
+    MAX_ITERATIONS = 600  # Safety limit (50 years at monthly payments)
+
     months = 0
     principal_balances = principal_balances.copy().astype(float)
     interest_rates = interest_rates.copy().astype(float)
     min_monthly_payments = min_monthly_payments.copy().astype(float)
     loan_numbers = loan_numbers.copy()
 
+    # Zero out balances below tolerance
+    principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
     total_balance = np.sum(principal_balances)
     interest_tally = []
     monthly_payments = []
     payment_columns = {'loanNumber': loan_numbers}
 
-    while total_balance > 0:
+    while total_balance > BALANCE_TOLERANCE:
+        # Safety check to prevent infinite loops
+        if months >= MAX_ITERATIONS:
+            raise ValueError(
+                f'Calculation exceeded maximum iterations ({MAX_ITERATIONS} months). '
+                'This may indicate an issue with your loan data or payment configuration.'
+            )
+
         # Filter for loans with remaining balance
-        active_idx = principal_balances > 0
+        active_idx = principal_balances > BALANCE_TOLERANCE
         active_principal = principal_balances[active_idx]
         active_rates = interest_rates[active_idx]
         active_min_payments = min_monthly_payments[active_idx]
@@ -127,6 +139,8 @@ def evenly_distributed_payments(
         payment_col[active_idx] = principal_payment
         payment_columns[col_name] = payment_col
 
+        # Zero out very small balances to prevent floating point errors
+        principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
         total_balance = np.sum(principal_balances)
 
     payment_table = pd.DataFrame(payment_columns)
@@ -144,19 +158,29 @@ def high_interest_first(
     """
     Payment strategy: Focus extra payments on the loan with highest interest rate.
     """
+    BALANCE_TOLERANCE = 0.01
+    MAX_ITERATIONS = 600
+
     months = 0
     principal_balances = principal_balances.copy().astype(float)
     interest_rates = interest_rates.copy().astype(float)
     min_monthly_payments = min_monthly_payments.copy().astype(float)
     loan_numbers = loan_numbers.copy()
 
+    principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
     total_balance = np.sum(principal_balances)
     interest_tally = []
     monthly_payments = []
     payment_columns = {'loanNumber': loan_numbers}
 
-    while total_balance > 0:
-        active_idx = principal_balances > 0
+    while total_balance > BALANCE_TOLERANCE:
+        if months >= MAX_ITERATIONS:
+            raise ValueError(
+                f'Calculation exceeded maximum iterations ({MAX_ITERATIONS} months). '
+                'This may indicate an issue with your loan data or payment configuration.'
+            )
+
+        active_idx = principal_balances > BALANCE_TOLERANCE
         active_principal = principal_balances[active_idx]
         active_rates = interest_rates[active_idx]
         active_min_payments = min_monthly_payments[active_idx]
@@ -226,6 +250,8 @@ def high_interest_first(
         payment_col[active_idx] = principal_payment
         payment_columns[col_name] = payment_col
 
+        # Zero out very small balances to prevent floating point errors
+        principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
         total_balance = np.sum(principal_balances)
 
     payment_table = pd.DataFrame(payment_columns)
@@ -243,19 +269,29 @@ def high_balance_first(
     """
     Payment strategy: Focus extra payments on the loan with highest principal balance.
     """
+    BALANCE_TOLERANCE = 0.01
+    MAX_ITERATIONS = 600
+
     months = 0
     principal_balances = principal_balances.copy().astype(float)
     interest_rates = interest_rates.copy().astype(float)
     min_monthly_payments = min_monthly_payments.copy().astype(float)
     loan_numbers = loan_numbers.copy()
 
+    principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
     total_balance = np.sum(principal_balances)
     interest_tally = []
     monthly_payments = []
     payment_columns = {'loanNumber': loan_numbers}
 
-    while total_balance > 0:
-        active_idx = principal_balances > 0
+    while total_balance > BALANCE_TOLERANCE:
+        if months >= MAX_ITERATIONS:
+            raise ValueError(
+                f'Calculation exceeded maximum iterations ({MAX_ITERATIONS} months). '
+                'This may indicate an issue with your loan data or payment configuration.'
+            )
+
+        active_idx = principal_balances > BALANCE_TOLERANCE
         active_principal = principal_balances[active_idx]
         active_rates = interest_rates[active_idx]
         active_min_payments = min_monthly_payments[active_idx]
@@ -325,6 +361,8 @@ def high_balance_first(
         payment_col[active_idx] = principal_payment
         payment_columns[col_name] = payment_col
 
+        # Zero out very small balances to prevent floating point errors
+        principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
         total_balance = np.sum(principal_balances)
 
     payment_table = pd.DataFrame(payment_columns)
@@ -342,19 +380,29 @@ def snowball_method(
     """
     Payment strategy: Pay off lowest balance loans first (snowball method).
     """
+    BALANCE_TOLERANCE = 0.01
+    MAX_ITERATIONS = 600
+
     months = 0
     principal_balances = principal_balances.copy().astype(float)
     interest_rates = interest_rates.copy().astype(float)
     min_monthly_payments = min_monthly_payments.copy().astype(float)
     loan_numbers = loan_numbers.copy()
 
+    principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
     total_balance = np.sum(principal_balances)
     interest_tally = []
     monthly_payments = []
     payment_columns = {'loanNumber': loan_numbers}
 
-    while total_balance > 0:
-        active_idx = principal_balances > 0
+    while total_balance > BALANCE_TOLERANCE:
+        if months >= MAX_ITERATIONS:
+            raise ValueError(
+                f'Calculation exceeded maximum iterations ({MAX_ITERATIONS} months). '
+                'This may indicate an issue with your loan data or payment configuration.'
+            )
+
+        active_idx = principal_balances > BALANCE_TOLERANCE
         active_principal = principal_balances[active_idx]
         active_rates = interest_rates[active_idx]
         active_min_payments = min_monthly_payments[active_idx]
@@ -424,6 +472,8 @@ def snowball_method(
         payment_col[active_idx] = principal_payment
         payment_columns[col_name] = payment_col
 
+        # Zero out very small balances to prevent floating point errors
+        principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
         total_balance = np.sum(principal_balances)
 
     payment_table = pd.DataFrame(payment_columns)
@@ -442,19 +492,29 @@ def minimize_accrued_interest(
     Payment strategy: Optimize payment allocation to minimize total monthly interest.
     Uses a greedy approach - pay extra toward the loan that will accrue the most interest.
     """
+    BALANCE_TOLERANCE = 0.01
+    MAX_ITERATIONS = 600
+
     months = 0
     principal_balances = principal_balances.copy().astype(float)
     interest_rates = interest_rates.copy().astype(float)
     min_monthly_payments = min_monthly_payments.copy().astype(float)
     loan_numbers = loan_numbers.copy()
 
+    principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
     total_balance = np.sum(principal_balances)
     interest_tally = []
     monthly_payments = []
     payment_columns = {'loanNumber': loan_numbers}
 
-    while total_balance > 0:
-        active_idx = principal_balances > 0
+    while total_balance > BALANCE_TOLERANCE:
+        if months >= MAX_ITERATIONS:
+            raise ValueError(
+                f'Calculation exceeded maximum iterations ({MAX_ITERATIONS} months). '
+                'This may indicate an issue with your loan data or payment configuration.'
+            )
+
+        active_idx = principal_balances > BALANCE_TOLERANCE
         active_principal = principal_balances[active_idx]
         active_rates = interest_rates[active_idx]
         active_min_payments = min_monthly_payments[active_idx]
@@ -523,6 +583,8 @@ def minimize_accrued_interest(
         payment_col[active_idx] = principal_payment
         payment_columns[col_name] = payment_col
 
+        # Zero out very small balances to prevent floating point errors
+        principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
         total_balance = np.sum(principal_balances)
 
     payment_table = pd.DataFrame(payment_columns)
