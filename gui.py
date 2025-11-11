@@ -809,7 +809,11 @@ class LoanCalculatorApp(QMainWindow):
     def export_summary(self):
         """Export summary to file."""
         if not self.calculation_results:
-            QMessageBox.warning(self, 'Warning', 'No results to export')
+            QMessageBox.warning(self, 'Warning', 'No results to export. Please run calculations first.')
+            return
+
+        if self.calculator.summary is None:
+            QMessageBox.warning(self, 'Warning', 'Summary data not available. Please run calculations first.')
             return
 
         try:
@@ -817,22 +821,29 @@ class LoanCalculatorApp(QMainWindow):
                 self, 'Save Summary', '', 'Excel Files (*.xlsx);;CSV Files (*.csv)'
             )
 
-            if filepath:
-                if not filepath.lower().endswith(('.xlsx', '.csv')):
-                    filepath += '.xlsx'
+            if not filepath:
+                self.statusBar.showMessage('Export cancelled')
+                return
 
-                self.calculator.export_summary(filepath)
-                QMessageBox.information(self, 'Success', f'Summary exported to:\n{filepath}')
-                self.statusBar.showMessage('Summary exported successfully')
+            if not filepath.lower().endswith(('.xlsx', '.csv')):
+                filepath += '.xlsx'
+
+            self.calculator.export_summary(filepath)
+            QMessageBox.information(self, 'Success', f'Summary exported to:\n{filepath}')
+            self.statusBar.showMessage('Summary exported successfully')
 
         except Exception as e:
-            QMessageBox.critical(self, 'Export Error', f'Error: {str(e)}')
+            QMessageBox.critical(self, 'Export Error', f'Error exporting summary: {str(e)}')
             self.statusBar.showMessage(f'Export failed: {str(e)}')
 
     def export_detailed(self):
         """Export detailed results to file."""
         if not self.calculation_results:
-            QMessageBox.warning(self, 'Warning', 'No results to export')
+            QMessageBox.warning(self, 'Warning', 'No results to export. Please run calculations first.')
+            return
+
+        if not self.calculator.results:
+            QMessageBox.warning(self, 'Warning', 'Detailed results not available. Please run calculations first.')
             return
 
         try:
@@ -840,16 +851,19 @@ class LoanCalculatorApp(QMainWindow):
                 self, 'Save Detailed Results', '', 'Excel Files (*.xlsx);;CSV Files (*.csv)'
             )
 
-            if filepath:
-                if not filepath.lower().endswith(('.xlsx', '.csv')):
-                    filepath += '.xlsx'
+            if not filepath:
+                self.statusBar.showMessage('Export cancelled')
+                return
 
-                self.calculator.export_detailed(filepath)
-                QMessageBox.information(self, 'Success', f'Detailed results exported to:\n{filepath}')
-                self.statusBar.showMessage('Detailed results exported successfully')
+            if not filepath.lower().endswith(('.xlsx', '.csv')):
+                filepath += '.xlsx'
+
+            self.calculator.export_detailed(filepath)
+            QMessageBox.information(self, 'Success', f'Detailed results exported to:\n{filepath}')
+            self.statusBar.showMessage('Detailed results exported successfully')
 
         except Exception as e:
-            QMessageBox.critical(self, 'Export Error', f'Error: {str(e)}')
+            QMessageBox.critical(self, 'Export Error', f'Error exporting detailed results: {str(e)}')
             self.statusBar.showMessage(f'Export failed: {str(e)}')
 
     def clear_form(self):
