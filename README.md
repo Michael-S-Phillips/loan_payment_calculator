@@ -10,6 +10,25 @@ A professional Python application for comparing different loan repayment strateg
 - **Detailed Results**: View month-by-month payment plans and summaries
 - **Export Options**: Save results to Excel or CSV format
 
+## Quick Start
+
+### Using Conda (Recommended)
+
+```bash
+conda env create -f environment.yml
+conda activate loan-calculator
+python main.py
+```
+
+### Using pip
+
+```bash
+pip install -r requirements.txt
+python main.py
+```
+
+For detailed setup instructions, see [SETUP.md](SETUP.md).
+
 ## Installation
 
 ### Requirements
@@ -19,14 +38,26 @@ A professional Python application for comparing different loan repayment strateg
 - openpyxl
 - PySimpleGUI
 
-### Setup
+### Setup with Conda
+
+1. Install [Conda or Miniconda](https://conda.io/projects/conda/en/latest/user-guide/install/)
+2. Clone or download this repository
+3. Create the environment:
+   ```bash
+   conda env create -f environment.yml
+   ```
+4. Activate the environment:
+   ```bash
+   conda activate loan-calculator
+   ```
+
+### Setup with pip
 
 1. Clone or download this repository
 2. Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
 ## Usage
 
