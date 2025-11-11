@@ -234,19 +234,10 @@ class LoanCalculator:
 
             strategy_info = self.STRATEGIES[strategy_key]
 
-            with open('/tmp/loan_calc_strategy_debug.log', 'a') as f:
-                f.write(f"[loan_calculator] Starting strategy {index}/{total_strategies}: {strategy_info['name']}\n")
-
             try:
                 # Report progress before calculation
                 if progress_callback:
                     progress_callback(strategy_info['name'], index, total_strategies)
-
-                with open('/tmp/loan_calc_strategy_debug.log', 'a') as f:
-                    f.write(f"[loan_calculator] Calling {strategy_info['name']} function\n")
-
-                with open('/tmp/loan_calc_strategy_debug.log', 'a') as f:
-                    f.write(f"[loan_calculator] Initial balance for {strategy_info['name']}: ${np.sum(principal_balances):.2f}\n")
 
                 months, payment_table, monthly_payments, interest_tally = strategy_info['func'](
                     max_monthly_payment=max_monthly_payment,
@@ -256,9 +247,6 @@ class LoanCalculator:
                     principal_balances=principal_balances.copy(),
                     min_monthly_payments=min_monthly_payments
                 )
-
-                with open('/tmp/loan_calc_strategy_debug.log', 'a') as f:
-                    f.write(f"[loan_calculator] {strategy_info['name']} calculation complete: {months} months\n")
 
                 self.results[strategy_key] = {
                     'name': strategy_info['name'],
