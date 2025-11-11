@@ -20,6 +20,51 @@ from loan_calculator_core import (
 class LoanCalculator:
     """Orchestrates loan payment calculations across different strategies."""
 
+    def create_template_file(self, filepath: str) -> None:
+        """
+        Create a template Excel file for users to fill in their loan information.
+
+        Args:
+            filepath: Path where the template file will be saved
+        """
+        try:
+            # Create sample data
+            template_data = {
+                'Loan Number': [1, 2, 3],
+                'Lender/Description': ['Student Loan A', 'Student Loan B', 'Credit Card'],
+                'Loan Type': ['Federal', 'Federal', 'Private'],
+                'Term (months)': [120, 120, 60],
+                'Principal Balance': [25000, 15000, 8000],
+                'Minimum Monthly Payment': [250, 200, 300],
+                'Annual Interest Rate (%)': [4.5, 5.2, 19.99]
+            }
+
+            df = pd.DataFrame(template_data)
+
+            # Write to Excel with formatting
+            with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Loans', index=False)
+
+                # Get the workbook and worksheet
+                workbook = writer.book
+                worksheet = writer.sheets['Loans']
+
+                # Auto-adjust column widths
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
+
+        except Exception as e:
+            raise ValueError(f"Error creating template file: {str(e)}")
+
     STRATEGIES = {
         'even': {
             'name': 'Even Payments',
