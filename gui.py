@@ -15,12 +15,17 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QFileDialog, QTableWidget, QTableWidgetItem,
     QCheckBox, QTabWidget, QSpinBox, QDoubleSpinBox,
-    QMessageBox, QStatusBar, QProgressBar, QHeaderView
+    QMessageBox, QStatusBar, QProgressBar, QHeaderView, QDialog, QScrollArea
 )
 from PyQt5.QtCore import Qt, pyqtSignal, QObject, QThread
 from PyQt5.QtGui import QFont, QColor
 
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+
 from loan_calculator import LoanCalculator
+from plot_strategies import StrategyPlotter
 
 
 class CalculationWorker(QObject):
@@ -324,6 +329,12 @@ class LoanCalculatorApp(QMainWindow):
         self.export_detailed_btn.clicked.connect(self.export_detailed)
         self.export_detailed_btn.setEnabled(False)
         button_layout.addWidget(self.export_detailed_btn)
+
+        self.view_plots_btn = QPushButton('View Plots')
+        self.view_plots_btn.clicked.connect(self.view_plots)
+        self.view_plots_btn.setEnabled(False)
+        self.view_plots_btn.setStyleSheet('QPushButton { background-color: #4CAF50; color: white; font-weight: bold; }')
+        button_layout.addWidget(self.view_plots_btn)
 
         self.clear_btn = QPushButton('Clear')
         self.clear_btn.clicked.connect(self.clear_form)
@@ -741,6 +752,7 @@ class LoanCalculatorApp(QMainWindow):
         self.display_results()
         self.export_summary_btn.setEnabled(True)
         self.export_detailed_btn.setEnabled(True)
+        self.view_plots_btn.setEnabled(True)
 
     def on_calculation_error(self, error):
         """Handle calculation error."""
@@ -865,6 +877,40 @@ class LoanCalculatorApp(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, 'Export Error', f'Error exporting detailed results: {str(e)}')
             self.statusBar.showMessage(f'Export failed: {str(e)}')
+
+    def view_plots(self):
+        """Display strategy comparison plots."""
+        if not self.calculator.results:
+            QMessageBox.warning(self, 'Warning', 'No results to plot. Please run calculations first.')
+            return
+
+        try:
+            # Create a dialog window for the plots
+            plot_dialog = QDialog(self)
+            plot_dialog.setWindowTitle('Loan Payment Strategy Comparison - Plots')
+            plot_dialog.setGeometry(100, 100, 1400, 900)
+
+            # Create matplotlib figure
+            fig = StrategyPlotter.create_comparison_plots(self.calculator.results)
+
+            # Create canvas and add to dialog
+            canvas = FigureCanvas(fig)
+            layout = QVBoxLayout()
+            layout.addWidget(canvas)
+
+            # Add a close button
+            close_btn = QPushButton('Close')
+            close_btn.clicked.connect(plot_dialog.accept)
+            layout.addWidget(close_btn)
+
+            plot_dialog.setLayout(layout)
+            plot_dialog.exec_()
+
+            self.statusBar.showMessage('Plots displayed successfully')
+
+        except Exception as e:
+            QMessageBox.critical(self, 'Plot Error', f'Error displaying plots: {str(e)}')
+            self.statusBar.showMessage(f'Plot failed: {str(e)}')
 
     def clear_form(self):
         """Clear all form fields and tables."""
