@@ -1,0 +1,12 @@
+name: loan-calculator
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pandas
+  - numpy
+  - openpyxl
+  - pip
+  - pip:
+    - PySimpleGUI>=4.60.0

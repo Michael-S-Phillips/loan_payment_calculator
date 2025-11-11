@@ -51,7 +51,7 @@ def evenly_distributed_payments(
     total_balance = np.sum(principal_balances)
     interest_tally = []
     monthly_payments = []
-    payment_table = pd.DataFrame({'loanNumber': loan_numbers})
+    payment_columns = {'loanNumber': loan_numbers}
 
     while total_balance > 0:
         # Filter for loans with remaining balance
@@ -125,10 +125,11 @@ def evenly_distributed_payments(
         col_name = f'Month{months}'
         payment_col = np.zeros(len(loan_numbers))
         payment_col[active_idx] = principal_payment
-        payment_table[col_name] = payment_col
+        payment_columns[col_name] = payment_col
 
         total_balance = np.sum(principal_balances)
 
+    payment_table = pd.DataFrame(payment_columns)
     return months, payment_table, monthly_payments, interest_tally
 
 
@@ -152,7 +153,7 @@ def high_interest_first(
     total_balance = np.sum(principal_balances)
     interest_tally = []
     monthly_payments = []
-    payment_table = pd.DataFrame({'loanNumber': loan_numbers})
+    payment_columns = {'loanNumber': loan_numbers}
 
     while total_balance > 0:
         active_idx = principal_balances > 0
@@ -223,10 +224,11 @@ def high_interest_first(
         col_name = f'Month{months}'
         payment_col = np.zeros(len(loan_numbers))
         payment_col[active_idx] = principal_payment
-        payment_table[col_name] = payment_col
+        payment_columns[col_name] = payment_col
 
         total_balance = np.sum(principal_balances)
 
+    payment_table = pd.DataFrame(payment_columns)
     return months, payment_table, monthly_payments, interest_tally
 
 
@@ -250,7 +252,7 @@ def high_balance_first(
     total_balance = np.sum(principal_balances)
     interest_tally = []
     monthly_payments = []
-    payment_table = pd.DataFrame({'loanNumber': loan_numbers})
+    payment_columns = {'loanNumber': loan_numbers}
 
     while total_balance > 0:
         active_idx = principal_balances > 0
@@ -321,10 +323,11 @@ def high_balance_first(
         col_name = f'Month{months}'
         payment_col = np.zeros(len(loan_numbers))
         payment_col[active_idx] = principal_payment
-        payment_table[col_name] = payment_col
+        payment_columns[col_name] = payment_col
 
         total_balance = np.sum(principal_balances)
 
+    payment_table = pd.DataFrame(payment_columns)
     return months, payment_table, monthly_payments, interest_tally
 
 
@@ -348,7 +351,7 @@ def snowball_method(
     total_balance = np.sum(principal_balances)
     interest_tally = []
     monthly_payments = []
-    payment_table = pd.DataFrame({'loanNumber': loan_numbers})
+    payment_columns = {'loanNumber': loan_numbers}
 
     while total_balance > 0:
         active_idx = principal_balances > 0
@@ -419,10 +422,11 @@ def snowball_method(
         col_name = f'Month{months}'
         payment_col = np.zeros(len(loan_numbers))
         payment_col[active_idx] = principal_payment
-        payment_table[col_name] = payment_col
+        payment_columns[col_name] = payment_col
 
         total_balance = np.sum(principal_balances)
 
+    payment_table = pd.DataFrame(payment_columns)
     return months, payment_table, monthly_payments, interest_tally
 
 
@@ -447,7 +451,7 @@ def minimize_accrued_interest(
     total_balance = np.sum(principal_balances)
     interest_tally = []
     monthly_payments = []
-    payment_table = pd.DataFrame({'loanNumber': loan_numbers})
+    payment_columns = {'loanNumber': loan_numbers}
 
     while total_balance > 0:
         active_idx = principal_balances > 0
@@ -517,8 +521,9 @@ def minimize_accrued_interest(
         col_name = f'Month{months}'
         payment_col = np.zeros(len(loan_numbers))
         payment_col[active_idx] = principal_payment
-        payment_table[col_name] = payment_col
+        payment_columns[col_name] = payment_col
 
         total_balance = np.sum(principal_balances)
 
+    payment_table = pd.DataFrame(payment_columns)
     return months, payment_table, monthly_payments, interest_tally
