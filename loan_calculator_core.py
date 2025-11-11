@@ -22,13 +22,15 @@ from typing import Tuple, List
 
 def _enforce_minimum_payments(min_payments: np.ndarray, available_budget: float, principal_balances: np.ndarray = None) -> np.ndarray:
     """
-    Enforce minimum payment constraints.
+    Enforce minimum payment constraints intelligently.
 
-    If sum of minimum payments exceeds available budget, scale them down proportionally
-    to ensure all minimum payments can be made while staying within budget.
+    If sum of minimum payments exceeds available budget, scale them proportionally BUT
+    protect loans with substantial balances from being scaled down too far.
 
-    When scaling, prioritize maintaining payments for loans with larger balances
-    to ensure loans aren't starved of principal payments.
+    Rules:
+    - Loans with balance > $200: Scale minimums, but never below 50% of original
+    - Loans with balance $100-$200: Scale minimums, but never below 25% of original
+    - Loans with balance < $100: Can scale to near-zero (they're nearly paid off)
 
     Args:
         min_payments: Array of minimum monthly payment amounts
@@ -36,32 +38,44 @@ def _enforce_minimum_payments(min_payments: np.ndarray, available_budget: float,
         principal_balances: Optional array of principal balances for smart scaling
 
     Returns:
-        Adjusted minimum payments array (may be scaled down if sum exceeded budget)
+        Adjusted minimum payments array (respecting substantial loans' minimums)
     """
     min_payments = min_payments.copy()
     sum_min = np.sum(min_payments)
 
     if sum_min > available_budget:
         if principal_balances is not None:
-            # Smart scaling: prioritize loans with larger balances
-            # Calculate a "priority" based on principal balance ratio
-            balance_ratios = principal_balances / (np.sum(principal_balances) + 1e-10)
+            # First pass: establish minimum floors based on balance size
+            min_floors = np.zeros_like(min_payments)
 
-            # For loans with significant balances, maintain higher minimums
-            # For loans near payoff, allow more aggressive scaling
-            priority = balance_ratios  # Higher priority for larger balances
+            # Loans with large balances need to maintain minimum payments
+            large_balance_mask = principal_balances > 200
+            min_floors[large_balance_mask] = min_payments[large_balance_mask] * 0.5  # At least 50%
 
-            # Allocate budget proportionally, with priority weighting
-            adjusted_payments = min_payments * priority
-            total_adjusted = np.sum(adjusted_payments)
+            medium_balance_mask = (principal_balances > 100) & (principal_balances <= 200)
+            min_floors[medium_balance_mask] = min_payments[medium_balance_mask] * 0.25  # At least 25%
 
-            if total_adjusted > 0:
-                scale_factor = available_budget / total_adjusted
-                min_payments = adjusted_payments * scale_factor
+            # Small balance loans can go to near-zero
+
+            # Second pass: allocate budget respecting floors
+            total_floors = np.sum(min_floors)
+
+            if total_floors <= available_budget:
+                # We can meet all the floors
+                remaining_budget = available_budget - total_floors
+                remaining_minimums = np.maximum(0, min_payments - min_floors)
+                total_remaining = np.sum(remaining_minimums)
+
+                if total_remaining > 0:
+                    scale_factor = remaining_budget / total_remaining
+                    scale_factor = min(scale_factor, 1.0)  # Don't exceed original minimums
+                    min_payments = min_floors + (remaining_minimums * scale_factor)
+                else:
+                    min_payments = min_floors
             else:
-                # Fallback to proportional scaling if priority-based scaling doesn't work
-                scale_factor = available_budget / sum_min
-                min_payments = min_payments * scale_factor
+                # Can't even meet the floors - scale them down proportionally
+                scale_factor = available_budget / total_floors
+                min_payments = min_floors * scale_factor
         else:
             # Fallback: proportional scaling when no balance info provided
             scale_factor = available_budget / sum_min
@@ -516,14 +530,11 @@ def snowball_method(
         # CRITICAL: Convert minimum TOTAL payments to minimum PRINCIPAL payments
         active_min_principal = np.maximum(0, active_min_payments - accrued_interest)
 
-        # Enforce minimum principal payment constraints with smart scaling
-        # Pass principal balances so loans with larger balances get priority
-        active_min_principal = _enforce_minimum_payments(active_min_principal, mpp, active_principal)
+        # Enforce minimum principal payment constraints with intelligent scaling
+        # Pass principal balances so loans with larger balances maintain their minimums
+        active_min_principal_enforced = _enforce_minimum_payments(active_min_principal, mpp, active_principal)
 
-        # CRITICAL FIX: Ensure loans with substantial balances (>$100) always get at least $1 principal
-        # to prevent them from getting stuck with zero principal payments
-        min_principal_floor = np.where(active_principal > 100, 1.0, active_min_principal)
-        active_min_principal = np.maximum(active_min_principal, min_principal_floor)
+        active_min_principal = active_min_principal_enforced
 
         # Find loan with lowest balance
         min_balance_idx = np.argmin(active_principal)
@@ -531,10 +542,12 @@ def snowball_method(
         # Distribute extra to lowest balance loan
         num_active = np.sum(active_idx)
         extra_available = mpp - np.sum(active_min_principal)
+
         if extra_available > 0:
             extra_dollars = np.ones(num_active) * extra_available / num_active
         else:
             extra_dollars = np.zeros(num_active)
+
         principal_payment = active_min_principal.copy()
         principal_payment[min_balance_idx] += np.sum(extra_dollars)
 
@@ -543,6 +556,9 @@ def snowball_method(
             if principal_payment[j] > active_principal[j]:
                 pay_remainder += principal_payment[j] - active_principal[j]
                 principal_payment[j] = active_principal[j]
+
+        # CRITICAL FIX: Save the starting principal before any modifications
+        starting_active_principal = active_principal.copy()
 
         active_principal -= principal_payment
         principal_balances[active_idx] = active_principal
@@ -577,14 +593,21 @@ def snowball_method(
                 sigma_b = np.sum(active_principal)
                 principal_balances[active_idx] = active_principal
 
+        # CRITICAL FIX: Compute actual payments made (after remainder redistribution)
+        # This ensures the payment_table matches the actual principal_balances
+        actual_principal_payment = starting_active_principal - active_principal
+
         months += 1
         interest_tally.append(float(np.sum(accrued_interest)))
-        total_payment = np.sum(accrued_interest) + np.sum(principal_payment) + extra_payment
+        # Use actual payments (after remainder redistribution) for totaling
+        # Note: actual_principal_payment already includes remainder redistribution, so don't add extra_payment again
+        total_payment = np.sum(accrued_interest) + np.sum(actual_principal_payment)
         monthly_payments.append(float(total_payment))
 
         col_name = f'Month{months}'
         payment_col = np.zeros(len(loan_numbers))
-        payment_col[active_idx] = principal_payment
+        # Record ACTUAL payments (including remainder redistribution)
+        payment_col[active_idx] = actual_principal_payment
         payment_columns[col_name] = payment_col
 
         # Zero out very small balances to prevent floating point errors
