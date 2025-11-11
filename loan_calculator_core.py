@@ -531,7 +531,10 @@ def minimize_accrued_interest(
         active_idx = principal_balances > BALANCE_TOLERANCE
         active_principal = principal_balances[active_idx]
         active_rates = interest_rates[active_idx]
-        active_min_payments = min_monthly_payments[active_idx]
+        active_min_payments = min_monthly_payments[active_idx].copy()
+
+        # Ensure minimum payment doesn't exceed principal balance (matches MATLAB logic)
+        active_min_payments[active_principal < active_min_payments] = active_principal[active_principal < active_min_payments]
 
         pay_remainder = 0
         accrued_interest = active_rates * active_principal
