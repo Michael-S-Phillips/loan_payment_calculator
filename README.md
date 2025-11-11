@@ -61,18 +61,71 @@ For detailed setup instructions, see [SETUP.md](SETUP.md).
 
 ## Usage
 
-### Running the Application
+### Launching the Application
 
 ```bash
 python main.py
 ```
 
-This launches the GUI application where you can:
+The application window will open with a professional PyQt5 interface.
 
-1. **Load Data** - Select an Excel, CSV, or TSV file with your loan information
-2. **Set Parameters** - Enter your maximum monthly payment and choose payment case
-3. **Select Strategies** - Choose which repayment strategies to compare
-4. **Calculate** - Run the calculations
+### Two Ways to Input Loan Data
+
+#### Option 1: Upload a File
+1. Click the **"Upload File"** tab
+2. Review the format requirements shown
+3. Click **"Download Template"** to get an example Excel file
+4. Click **"Browse"** to select your loan file (Excel, CSV, TSV, or Text)
+5. Click **"Load File"** to import
+
+#### Option 2: Manual Entry
+1. Click the **"Manual Entry"** tab
+2. Fill in loan details:
+   - **Name** - Loan identifier (e.g., "Student Loan A")
+   - **Principal** - Current balance
+   - **Min Payment** - Minimum monthly payment required
+   - **Interest Rate (%)** - Annual interest rate
+3. Click **"Add Loan"** to add each loan to the table
+4. Use **"Remove"** button to delete loans as needed
+
+### Settings
+
+- **Maximum Monthly Payment** - The total amount you can pay each month
+- **Strategies** - Select which payment strategies you want to compare (all 5 are selected by default)
+
+### Calculate
+
+Click **"Calculate"** to run the analysis:
+- A progress bar will appear during calculations
+- Status bar shows "Running calculations..." with real-time feedback
+- When complete, results automatically display in the summary table
+- Export buttons become enabled
+
+### Results
+
+The results table shows for each strategy:
+- **Strategy** - Name of the payment approach
+- **Months** - Time (in months) to pay off all loans
+- **Total Cost** - Total of all monthly payments
+- **Total Interest** - Total interest paid over life of loans
+
+### Export Results
+
+#### Export Summary
+- Quick overview with just the totals
+- Saves as Excel or CSV
+
+#### Export Detailed
+- Full Excel workbook with payment tables
+- Shows month-by-month breakdown for each loan
+- Separate sheets for each strategy
+
+## How It Works
+
+1. **Load Data** - Upload a file or manually enter your loan information
+2. **Set Payment** - Enter your maximum monthly payment amount
+3. **Select Strategies** - Choose which repayment strategies to compare (all 5 are selected by default)
+4. **Calculate** - Click Calculate to run the analysis (progress bar shows status)
 5. **Export** - Save the results as Excel or CSV files
 
 ### Input File Format
@@ -141,17 +194,13 @@ Shows for each strategy:
 ### Detailed Payment Tables
 Month-by-month breakdown of principal payments for each loan under each strategy.
 
-## Payment Cases
+## Payment Calculation
 
-### Case 0: Fixed Total Payment (default)
-- You specify a fixed maximum total payment each month
-- Formula: Total Payment = Interest + Principal Reduction
-- The calculator determines how much extra principal to pay
-
-### Case 1: Fixed Principal Payment
-- You make the maximum payment, all interest is covered first
-- Formula: Total Payment = Interest + Fixed Amount
-- Useful for understanding minimum required payments
+The calculator uses **Fixed Total Payment** mode:
+- You specify your maximum monthly payment
+- Formula: Total Payment = Interest Charges + Principal Reduction
+- The calculator distributes available principal payments according to the selected strategy
+- If a loan is paid off early, remaining funds automatically go to the next highest priority loan
 
 ## Technical Details
 
