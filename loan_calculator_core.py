@@ -44,12 +44,17 @@ def evenly_distributed_payments(
     """
     BALANCE_TOLERANCE = 0.01  # Consider balances < $0.01 as paid off
     MAX_ITERATIONS = 600  # Safety limit (50 years at monthly payments)
+    LOG_FILE = '/tmp/loan_calc_strategy_debug.log'
 
     months = 0
     principal_balances = principal_balances.copy().astype(float)
     interest_rates = interest_rates.copy().astype(float)
     min_monthly_payments = min_monthly_payments.copy().astype(float)
     loan_numbers = loan_numbers.copy()
+
+    with open(LOG_FILE, 'a') as f:
+        f.write(f"[evenly_distributed_payments] Starting with total balance: ${np.sum(principal_balances):.2f}\n")
+        f.write(f"[evenly_distributed_payments] Max payment: ${max_monthly_payment}\n")
 
     # Zero out balances below tolerance
     principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
@@ -61,10 +66,17 @@ def evenly_distributed_payments(
     while total_balance > BALANCE_TOLERANCE:
         # Safety check to prevent infinite loops
         if months >= MAX_ITERATIONS:
+            with open(LOG_FILE, 'a') as f:
+                f.write(f"[evenly_distributed_payments] ERROR: Max iterations reached at month {months}\n")
             raise ValueError(
                 f'Calculation exceeded maximum iterations ({MAX_ITERATIONS} months). '
                 'This may indicate an issue with your loan data or payment configuration.'
             )
+
+        # Log progress every 100 months
+        if months % 100 == 0:
+            with open(LOG_FILE, 'a') as f:
+                f.write(f"[evenly_distributed_payments] Month {months}: balance = ${total_balance:.2f}\n")
 
         # Filter for loans with remaining balance
         active_idx = principal_balances > BALANCE_TOLERANCE
@@ -143,6 +155,8 @@ def evenly_distributed_payments(
         principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
         total_balance = np.sum(principal_balances)
 
+    with open(LOG_FILE, 'a') as f:
+        f.write(f"[evenly_distributed_payments] Calculation complete: {months} months, final balance = ${total_balance:.2f}\n")
     payment_table = pd.DataFrame(payment_columns)
     return months, payment_table, monthly_payments, interest_tally
 
@@ -382,6 +396,7 @@ def snowball_method(
     """
     BALANCE_TOLERANCE = 0.01
     MAX_ITERATIONS = 600
+    LOG_FILE = '/tmp/loan_calc_strategy_debug.log'
 
     months = 0
     principal_balances = principal_balances.copy().astype(float)
@@ -389,18 +404,32 @@ def snowball_method(
     min_monthly_payments = min_monthly_payments.copy().astype(float)
     loan_numbers = loan_numbers.copy()
 
+    with open(LOG_FILE, 'a') as f:
+        f.write(f"[snowball_method] Starting with total balance: ${np.sum(principal_balances):.2f}\n")
+        f.write(f"[snowball_method] Max payment: ${max_monthly_payment}\n")
+
     principal_balances[principal_balances < BALANCE_TOLERANCE] = 0
     total_balance = np.sum(principal_balances)
     interest_tally = []
     monthly_payments = []
     payment_columns = {'loanNumber': loan_numbers}
 
+    with open(LOG_FILE, 'a') as f:
+        f.write(f"[snowball_method] Entering main loop\n")
+
     while total_balance > BALANCE_TOLERANCE:
         if months >= MAX_ITERATIONS:
+            with open(LOG_FILE, 'a') as f:
+                f.write(f"[snowball_method] ERROR: Max iterations reached at month {months}\n")
             raise ValueError(
                 f'Calculation exceeded maximum iterations ({MAX_ITERATIONS} months). '
                 'This may indicate an issue with your loan data or payment configuration.'
             )
+
+        # Log progress every 100 months
+        if months % 100 == 0:
+            with open(LOG_FILE, 'a') as f:
+                f.write(f"[snowball_method] Month {months}: balance = ${total_balance:.2f}\n")
 
         active_idx = principal_balances > BALANCE_TOLERANCE
         active_principal = principal_balances[active_idx]
@@ -448,7 +477,16 @@ def snowball_method(
         if pay_remainder > 0 and sigma_b > 0:
             while pay_remainder > 0 and sigma_b > 0:
                 remaining_principal = active_principal.copy()
-                min_balance_idx = np.argmin(remaining_principal[remaining_principal > 0] if np.any(remaining_principal > 0) else remaining_principal)
+                # Find index of minimum balance among positive balances
+                positive_mask = remaining_principal > 0
+                if np.any(positive_mask):
+                    # Get indices of positive balances and find which has minimum value
+                    positive_indices = np.where(positive_mask)[0]
+                    min_idx_in_positive = np.argmin(remaining_principal[positive_indices])
+                    min_balance_idx = positive_indices[min_idx_in_positive]
+                else:
+                    # All balances are zero or negative, shouldn't happen but use argmin as fallback
+                    min_balance_idx = np.argmin(remaining_principal)
 
                 if active_principal[min_balance_idx] - pay_remainder < 0:
                     extra_payment += active_principal[min_balance_idx]
