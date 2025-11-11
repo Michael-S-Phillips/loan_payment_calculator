@@ -186,7 +186,8 @@ class LoanCalculator:
         self,
         max_monthly_payment: float,
         payment_case: int = 0,
-        strategies: Optional[List[str]] = None
+        strategies: Optional[List[str]] = None,
+        progress_callback: Optional[callable] = None
     ) -> Dict:
         """
         Run loan payment calculations for specified strategies.
@@ -195,6 +196,7 @@ class LoanCalculator:
             max_monthly_payment: Maximum total monthly payment available
             payment_case: 0=fixed total payment, 1=fixed payment after interest
             strategies: List of strategy keys to run. None = all strategies
+            progress_callback: Optional callback function(strategy_name, current, total) for progress reporting
 
         Returns:
             Dictionary with results for each strategy
@@ -224,14 +226,19 @@ class LoanCalculator:
         # Run selected strategies
         self.results = {}
         summary_data = []
+        total_strategies = len(strategies)
 
-        for strategy_key in strategies:
+        for index, strategy_key in enumerate(strategies, 1):
             if strategy_key not in self.STRATEGIES:
                 raise ValueError(f"Unknown strategy: {strategy_key}")
 
             strategy_info = self.STRATEGIES[strategy_key]
 
             try:
+                # Report progress before calculation
+                if progress_callback:
+                    progress_callback(strategy_info['name'], index, total_strategies)
+
                 months, payment_table, monthly_payments, interest_tally = strategy_info['func'](
                     max_monthly_payment=max_monthly_payment,
                     payment_case=payment_case,

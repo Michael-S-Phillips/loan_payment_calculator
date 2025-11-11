@@ -29,6 +29,7 @@ class CalculationWorker(QObject):
     finished = pyqtSignal()
     error = pyqtSignal(str)
     progress = pyqtSignal(str)
+    strategy_progress = pyqtSignal(str, int, int)  # strategy_name, current, total
     results = pyqtSignal(dict)
 
     def __init__(self, calculator, max_payment, strategies):
@@ -37,6 +38,11 @@ class CalculationWorker(QObject):
         self.max_payment = max_payment
         self.strategies = strategies
 
+    def on_strategy_progress(self, strategy_name, current, total):
+        """Handle progress update from calculator."""
+        self.strategy_progress.emit(strategy_name, current, total)
+        self.progress.emit(f'Calculating: {strategy_name} ({current}/{total})')
+
     def run(self):
         """Run the calculation."""
         try:
@@ -44,7 +50,8 @@ class CalculationWorker(QObject):
             results = self.calculator.calculate(
                 max_monthly_payment=self.max_payment,
                 payment_case=0,  # Fixed total payment
-                strategies=self.strategies
+                strategies=self.strategies,
+                progress_callback=self.on_strategy_progress
             )
             self.results.emit(results)
             self.progress.emit('Calculations complete!')
@@ -705,6 +712,7 @@ class LoanCalculatorApp(QMainWindow):
             self.worker.moveToThread(self.calculation_thread)
 
             self.worker.progress.connect(self.update_progress)
+            self.worker.strategy_progress.connect(self.update_strategy_progress)
             self.worker.results.connect(self.on_calculation_complete)
             self.worker.error.connect(self.on_calculation_error)
             self.worker.finished.connect(self.on_calculation_finished)
@@ -719,6 +727,13 @@ class LoanCalculatorApp(QMainWindow):
     def update_progress(self, message):
         """Update progress message."""
         self.statusBar.showMessage(message)
+
+    def update_strategy_progress(self, strategy_name, current, total):
+        """Update progress bar based on strategy progress."""
+        # Set progress bar to show percentage completion
+        percentage = int((current / total) * 100)
+        self.progress_bar.setMaximum(100)
+        self.progress_bar.setValue(percentage)
 
     def on_calculation_complete(self, results):
         """Handle calculation completion."""
