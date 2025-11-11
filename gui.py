@@ -67,10 +67,168 @@ class LoanCalculatorApp(QMainWindow):
         self.worker = None
         self.init_ui()
 
+    def setup_stylesheet(self):
+        """Apply stylesheet that works with light and dark themes."""
+        stylesheet = """
+            QMainWindow {
+                background-color: palette(window);
+                color: palette(text);
+            }
+
+            QWidget {
+                background-color: palette(window);
+                color: palette(text);
+            }
+
+            QLabel {
+                color: palette(text);
+            }
+
+            /* Guidance boxes with proper contrast */
+            QLabel#guidance_box {
+                background-color: palette(button);
+                color: palette(text);
+                border: 1px solid palette(mid);
+                padding: 10px;
+                border-radius: 4px;
+            }
+
+            QPushButton {
+                background-color: palette(button);
+                color: palette(text);
+                border: 1px solid palette(mid);
+                border-radius: 4px;
+                padding: 5px;
+                min-width: 60px;
+            }
+
+            QPushButton:hover {
+                background-color: palette(alternate-base);
+            }
+
+            QPushButton:pressed {
+                background-color: palette(mid);
+            }
+
+            /* Green button for Calculate */
+            QPushButton#calculate_btn {
+                background-color: #4CAF50;
+                color: white;
+                font-weight: bold;
+                border: none;
+            }
+
+            QPushButton#calculate_btn:hover {
+                background-color: #45a049;
+            }
+
+            QLineEdit {
+                background-color: palette(base);
+                color: palette(text);
+                border: 1px solid palette(mid);
+                padding: 5px;
+                border-radius: 3px;
+            }
+
+            QDoubleSpinBox, QSpinBox {
+                background-color: palette(base);
+                color: palette(text);
+                border: 1px solid palette(mid);
+                padding: 5px;
+                border-radius: 3px;
+            }
+
+            QCheckBox {
+                color: palette(text);
+                spacing: 5px;
+            }
+
+            QRadioButton {
+                color: palette(text);
+                spacing: 5px;
+            }
+
+            QTableWidget {
+                background-color: palette(base);
+                color: palette(text);
+                gridline-color: palette(mid);
+                border: 1px solid palette(mid);
+            }
+
+            QTableWidget::item {
+                padding: 5px;
+                border-right: 1px solid palette(mid);
+                border-bottom: 1px solid palette(mid);
+            }
+
+            QHeaderView::section {
+                background-color: palette(button);
+                color: palette(text);
+                padding: 5px;
+                border: 1px solid palette(mid);
+            }
+
+            QProgressBar {
+                border: 1px solid palette(mid);
+                border-radius: 4px;
+                background-color: palette(base);
+                text-align: center;
+                color: palette(text);
+            }
+
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+            }
+
+            QTabWidget::pane {
+                border: 1px solid palette(mid);
+            }
+
+            QTabBar::tab {
+                background-color: palette(button);
+                color: palette(text);
+                padding: 6px 20px;
+                border: 1px solid palette(mid);
+            }
+
+            QTabBar::tab:selected {
+                background-color: palette(base);
+                border-bottom: 2px solid #4CAF50;
+            }
+
+            QTabBar::tab:hover {
+                background-color: palette(alternate-base);
+            }
+
+            QStatusBar {
+                color: palette(text);
+            }
+
+            QMessageBox QLabel {
+                color: palette(text);
+            }
+
+            /* Subtitle text with muted color */
+            QLabel#subtitle {
+                color: palette(mid);
+                font-size: 10px;
+            }
+
+            /* File status label - green for success */
+            QLabel#file_status {
+                color: #4CAF50;
+                font-weight: bold;
+            }
+        """
+        self.setStyleSheet(stylesheet)
+
     def init_ui(self):
         """Initialize the user interface."""
         self.setWindowTitle('Loan Payment Calculator')
         self.setGeometry(100, 100, 1200, 1000)
+
+        # Apply modern stylesheet that works with light and dark themes
+        self.setup_stylesheet()
 
         # Create central widget and main layout
         central_widget = QWidget()
@@ -89,7 +247,7 @@ class LoanCalculatorApp(QMainWindow):
 
         subtitle = QLabel('Compare different loan repayment strategies')
         subtitle.setAlignment(Qt.AlignCenter)
-        subtitle.setStyleSheet('color: gray; font-size: 10px;')
+        subtitle.setObjectName('subtitle')
         main_layout.addWidget(subtitle)
 
         main_layout.addSpacing(10)
@@ -153,8 +311,8 @@ class LoanCalculatorApp(QMainWindow):
         # Action buttons
         button_layout = QHBoxLayout()
         self.calculate_btn = QPushButton('Calculate')
+        self.calculate_btn.setObjectName('calculate_btn')
         self.calculate_btn.clicked.connect(self.calculate)
-        self.calculate_btn.setStyleSheet('background-color: green; color: white; font-weight: bold; padding: 5px;')
         button_layout.addWidget(self.calculate_btn)
 
         self.export_summary_btn = QPushButton('Export Summary')
@@ -225,7 +383,7 @@ class LoanCalculatorApp(QMainWindow):
             'Supported formats: Excel (.xlsx, .xls), CSV, TSV, Text files\n'
             'Click "Download Template" below for an example file.'
         )
-        guidance.setStyleSheet('border: 1px solid #cccccc; padding: 10px; background-color: #f0f0f0;')
+        guidance.setObjectName('guidance_box')
         layout.addWidget(guidance)
 
         layout.addSpacing(10)
@@ -253,7 +411,7 @@ class LoanCalculatorApp(QMainWindow):
         self.load_btn.clicked.connect(self.load_file)
         load_layout.addWidget(self.load_btn)
         self.file_status = QLabel('')
-        self.file_status.setStyleSheet('color: green;')
+        self.file_status.setObjectName('file_status')
         load_layout.addWidget(self.file_status)
         load_layout.addStretch()
         layout.addLayout(load_layout)
@@ -271,7 +429,7 @@ class LoanCalculatorApp(QMainWindow):
             'Manually enter your loan information below.\n'
             'Fill in all fields and click "Add Loan" to add each loan.'
         )
-        guidance.setStyleSheet('border: 1px solid #cccccc; padding: 10px; background-color: #f0f0f0;')
+        guidance.setObjectName('guidance_box')
         layout.addWidget(guidance)
 
         layout.addSpacing(10)
@@ -319,7 +477,6 @@ class LoanCalculatorApp(QMainWindow):
 
         # Status label
         self.manual_status = QLabel('No loans added yet')
-        self.manual_status.setStyleSheet('color: #666666; font-style: italic;')
         layout.addWidget(self.manual_status)
 
         layout.addStretch()
