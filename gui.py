@@ -354,7 +354,7 @@ class LoanCalculatorApp(QMainWindow):
 
         for key, label in strategies:
             checkbox = QCheckBox(label)
-            checkbox.setChecked(key != 'milp_lifetime')  # Enable all except MILP by default
+            checkbox.setChecked(True)  # Enable all strategies by default
             self.strategy_checks[key] = checkbox
             strategy_layout.addWidget(checkbox)
 
