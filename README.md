@@ -1,11 +1,10 @@
 # Loan Payment Calculator
 
-A professional Python application for comparing different loan repayment strategies. Load your loan data, run calculations for multiple strategies, and export results to see which approach saves you the most interest.
+A Python application for comparing different loan repayment strategies. Load your loan data, run calculations for multiple strategies, and export results to see which approach saves you the most money over the lifetime of your loans.
 
 ## Features
 
 - **Multiple Strategies**: Compare 5 different payment allocation methods
-- **Professional GUI**: Professional PyQt5-based interface
 - **Flexible Input**: Load data from Excel, CSV, TSV, or text files
 - **Detailed Results**: View month-by-month payment plans and summaries
 - **Export Options**: Save results to Excel or CSV format
