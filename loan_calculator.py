@@ -13,7 +13,6 @@ from loan_calculator_core import (
     high_interest_first,
     high_balance_first,
     snowball_method,
-    minimize_accrued_interest,
     milp_lifetime_optimal
 )
 
@@ -81,11 +80,6 @@ class LoanCalculator:
             'name': 'High Balance First',
             'description': 'Focus extra payments on highest principal balance loans',
             'func': high_balance_first
-        },
-        'minimize_interest': {
-            'name': 'Minimize Accrued Interest',
-            'description': 'Optimize payment allocation to minimize monthly interest',
-            'func': minimize_accrued_interest
         },
         'snowball': {
             'name': 'Snowball Method',

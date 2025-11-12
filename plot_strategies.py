@@ -17,9 +17,8 @@ class StrategyPlotter:
         'even': '#1f77b4',  # Blue
         'high_interest': '#ff7f0e',  # Orange
         'high_balance': '#2ca02c',  # Green
-        'minimize_interest': '#d62728',  # Red
         'snowball': '#9467bd',  # Purple
-        'milp_lifetime': '#17becf'  # Cyan (new strategy)
+        'milp_lifetime': '#17becf'  # Cyan
     }
 
     # Markers for each strategy
@@ -27,16 +26,14 @@ class StrategyPlotter:
         'even': 's',  # square
         'high_interest': '^',  # triangle
         'high_balance': 'o',  # circle
-        'minimize_interest': '*',  # star
         'snowball': 'x',  # x
-        'milp_lifetime': 'D'  # diamond (new strategy)
+        'milp_lifetime': 'D'  # diamond
     }
 
     STRATEGY_NAMES = {
         'even': 'Even Payments',
         'high_interest': 'High Interest First',
         'high_balance': 'High Balance First',
-        'minimize_interest': 'Minimize Accrued Interest',
         'snowball': 'Snowball Method',
         'milp_lifetime': 'MILP Lifetime Optimal'
     }
