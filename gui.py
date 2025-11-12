@@ -300,9 +300,8 @@ class LoanCalculatorApp(QMainWindow):
             ('even', 'Even Payments - Distribute extra payments equally across all loans'),
             ('high_interest', 'High Interest First - Focus on highest interest rate loans'),
             ('high_balance', 'High Balance First - Focus on highest principal balance loans'),
-            ('minimize_interest', 'Minimize Interest - Optimize to minimize monthly interest charges'),
             ('snowball', 'Snowball Method - Pay off lowest balance loans first'),
-            ('milp_lifetime', '⭐ MILP Lifetime Optimal - Globally optimal solution (slower but mathematically proven)')
+            ('milp_lifetime', '⭐ MILP Lifetime Optimal - Globally optimal solution')
         ]
 
         for key, label in strategies:
@@ -310,16 +309,6 @@ class LoanCalculatorApp(QMainWindow):
             checkbox.setChecked(key != 'milp_lifetime')  # Enable all except MILP by default
             self.strategy_checks[key] = checkbox
             strategy_layout.addWidget(checkbox)
-
-        # Add information about MILP
-        info_label = QLabel(
-            '📌 Note: MILP Lifetime Optimal uses Mixed Integer Linear Programming to find the globally optimal '
-            'payment allocation across your entire repayment period. It solves the problem holistically (all months at once) '
-            'rather than month-by-month, guaranteeing the mathematically best solution.'
-        )
-        info_label.setStyleSheet('color: #FF6F00; font-style: italic; padding: 10px; background-color: rgba(255,111,0,0.1); border-radius: 4px;')
-        info_label.setWordWrap(True)
-        strategy_layout.addWidget(info_label)
 
         main_layout.addLayout(strategy_layout)
         main_layout.addSpacing(10)
