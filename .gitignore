@@ -134,3 +134,11 @@ Thumbs.db
 output/
 results/
 export/
+
+# Documentation files (keep locally, don't commit to repo)
+PROJECT_SUMMARY.md
+ALGORITHM_SPECIFICATION.md
+STRATEGY_DEFINITIONS.md
+ANALYSIS_AND_NEXT_STEPS.md
+ALGORITHM_REDESIGN.md
+GUI_INTEGRATION_SUMMARY.md
