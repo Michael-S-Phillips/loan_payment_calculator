@@ -301,14 +301,24 @@ class LoanCalculatorApp(QMainWindow):
             ('high_interest', 'High Interest First - Focus on highest interest rate loans'),
             ('high_balance', 'High Balance First - Focus on highest principal balance loans'),
             ('minimize_interest', 'Minimize Interest - Optimize to minimize monthly interest charges'),
-            ('snowball', 'Snowball Method - Pay off lowest balance loans first')
+            ('snowball', 'Snowball Method - Pay off lowest balance loans first'),
+            ('milp_lifetime', '⭐ MILP Lifetime Optimal - Mathematically optimal solution (uses principal-only budget)')
         ]
 
         for key, label in strategies:
             checkbox = QCheckBox(label)
-            checkbox.setChecked(True)
+            checkbox.setChecked(key != 'milp_lifetime')  # Enable all except MILP by default
             self.strategy_checks[key] = checkbox
             strategy_layout.addWidget(checkbox)
+
+        # Add information about budget interpretation
+        info_label = QLabel(
+            '📌 Note: Most strategies use total budget (principal + interest). '
+            'MILP uses principal-only budget, which may result in higher monthly payments but optimal results.'
+        )
+        info_label.setStyleSheet('color: #FF9800; font-style: italic; padding: 10px; background-color: rgba(255,152,0,0.1); border-radius: 4px;')
+        info_label.setWordWrap(True)
+        strategy_layout.addWidget(info_label)
 
         main_layout.addLayout(strategy_layout)
         main_layout.addSpacing(10)
@@ -361,8 +371,8 @@ class LoanCalculatorApp(QMainWindow):
         main_layout.addWidget(results_title)
 
         self.results_table = QTableWidget()
-        self.results_table.setColumnCount(4)
-        self.results_table.setHorizontalHeaderLabels(['Strategy', 'Months', 'Total Cost', 'Total Interest'])
+        self.results_table.setColumnCount(5)
+        self.results_table.setHorizontalHeaderLabels(['Strategy', 'Months', 'Total Principal', 'Total Interest', 'Total Cost'])
         self.results_table.setRowCount(0)
         self.results_table.setVisible(False)
         self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -778,7 +788,7 @@ class LoanCalculatorApp(QMainWindow):
 
             # Set up table
             self.results_table.setRowCount(len(summary))
-            self.results_table.setColumnCount(4)
+            self.results_table.setColumnCount(5)
 
             row = 0
             for strategy, row_data in summary.iterrows():
@@ -793,8 +803,9 @@ class LoanCalculatorApp(QMainWindow):
                 item.setTextAlignment(Qt.AlignCenter)
                 self.results_table.setItem(row, 1, item)
 
-                # Total Cost
-                item = QTableWidgetItem(f"${row_data['Total Cost']:,.2f}")
+                # Total Principal (calculated as Total Cost - Total Interest)
+                principal = row_data['Total Cost'] - row_data['Total Interest']
+                item = QTableWidgetItem(f"${principal:,.2f}")
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                 item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.results_table.setItem(row, 2, item)
@@ -804,6 +815,12 @@ class LoanCalculatorApp(QMainWindow):
                 item.setFlags(item.flags() & ~Qt.ItemIsEditable)
                 item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 self.results_table.setItem(row, 3, item)
+
+                # Total Cost
+                item = QTableWidgetItem(f"${row_data['Total Cost']:,.2f}")
+                item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+                item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                self.results_table.setItem(row, 4, item)
 
                 row += 1
 
