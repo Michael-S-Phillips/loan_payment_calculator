@@ -857,26 +857,21 @@ def milp_lifetime_optimal(
 
     # Dynamics and constraints for each month
     for t in range(1, T + 1):
-        # Calculate total interest accrued this month (before payments)
-        total_interest_this_month = pulp.lpSum(
-            float(monthly_rates[i]) * bal[(i, t - 1)]
-            for i in range(N)
-        )
-
         # Monthly budget constraint on PRINCIPAL payments only
-        # pay[i,t] represents total payment (principal + interest)
-        # But we constrain: sum(principal[i,t]) <= max_monthly_payment
-        # Where principal[i,t] = pay[i,t] - interest[i,t]
-        # So: sum(pay[i,t]) - total_interest <= max_monthly_payment
-        # Therefore: sum(pay[i,t]) <= max_monthly_payment + total_interest
-        model += pulp.lpSum(pay[(i, t)] for i in range(N)) <= max_monthly_payment + total_interest_this_month
+        # pay[i,t] in the MILP represents principal payment to loan i in month t
+        # The monthly budget constrains the sum of principal payments across all loans
+        # Interest accrues separately on remaining balances (mandatory, not part of budget)
+        model += pulp.lpSum(pay[(i, t)] for i in range(N)) <= max_monthly_payment
 
         for i in range(N):
             r_i = float(monthly_rates[i])
             m_i = float(min_monthly_payments[i])
 
             # Balance update: bal[i, t] = (1 + r_i) * bal[i, t-1] - pay[i, t]
-            # Note: pay[i,t] represents total payment from the account (principal + any interest paid)
+            # Where:
+            #   (1 + r_i) * bal[i, t-1] = balance with accrued interest
+            #   pay[i, t] = principal payment (reduces balance below interest-adjusted level)
+            # So: new_balance = (balance + interest) - principal_payment
             model += bal[(i, t)] == (1.0 + r_i) * bal[(i, t-1)] - pay[(i, t)]
 
             # Binary activation: if bal[i, t-1] > 0 then z[i, t] must be 1
@@ -950,20 +945,24 @@ def milp_lifetime_optimal(
         t_idx = t - 1  # Convert to 0-indexed
         month_col = f'Month{t}'
 
-        # Add payment column to table (this is principal reduction per loan)
-        payment_columns[month_col] = payment_array[t_idx]
-
-        # Calculate interest accrued for this month (on starting balance)
-        interest_this_month = np.sum(balance_array[t_idx] * monthly_rates)
+        # Calculate interest accrued for this month (on starting balance of month)
+        # interest[i,t] = r_i * bal[i,t-1]
+        interest_accrued = balance_array[t_idx] * monthly_rates
+        interest_this_month = np.sum(interest_accrued)
         interest_tally_list.append(float(interest_this_month))
 
-        # Total payment for this month
-        # pay[i,t] represents total payment withdrawn from account (principal + interest both reduce balance)
-        # The balance equation: bal[t] = (1+r)*bal[t-1] - pay[t]
-        # So pay[t] is the amount needed to be withdrawn to achieve the ending balance
-        # This includes both principal reduction and interest paid out
-        # Since payment_array contains these pay values directly, use them as-is
-        total_payment_this_month = np.sum(payment_array[t_idx])
+        # CRITICAL: payment_array contains the MILP pay[i,t] which equals:
+        # pay[i,t] = principal_paid[i,t] + interest_accrued[i,t]
+        # (mathematically, sum_t(pay) = principal + total_interest)
+        #
+        # The payment_table should contain PRINCIPAL payments only
+        # So extract: principal[i,t] = pay[i,t] - interest[i,t]
+        principal_paid = payment_array[t_idx] - interest_accrued
+        payment_columns[month_col] = principal_paid
+
+        # Total payment for this month (what borrower actually spends)
+        principal_this_month = np.sum(principal_paid)
+        total_payment_this_month = principal_this_month + interest_this_month
         monthly_payments_list.append(float(total_payment_this_month))
 
     payment_table = pd.DataFrame(payment_columns)
