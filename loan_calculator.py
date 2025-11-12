@@ -13,7 +13,8 @@ from loan_calculator_core import (
     high_interest_first,
     high_balance_first,
     snowball_method,
-    minimize_accrued_interest
+    minimize_accrued_interest,
+    milp_lifetime_optimal
 )
 
 
@@ -90,6 +91,11 @@ class LoanCalculator:
             'name': 'Snowball Method',
             'description': 'Pay off lowest balance loans first for psychological wins',
             'func': snowball_method
+        },
+        'milp_lifetime': {
+            'name': 'MILP Lifetime Optimal',
+            'description': 'Mixed Integer Linear Programming lifetime optimizer (globally optimal, slower)',
+            'func': milp_lifetime_optimal
         }
     }
 
@@ -110,7 +116,10 @@ class LoanCalculator:
         3: Term (months)
         4: Principal Balance
         5: Minimum Monthly Payment
-        6: Annual Interest Rate (as percentage)
+        6: Annual Interest Rate
+           STANDARD FORMAT: Percentage (e.g., 4.5 for 4.5% APR)
+           ALSO SUPPORTED: Decimal (e.g., 0.045 for 4.5% APR)
+           The calculator auto-detects the format and handles both.
 
         Args:
             filepath: Path to data file
@@ -221,15 +230,24 @@ class LoanCalculator:
         annual_interest_rates = pd.to_numeric(self.loan_data.iloc[:, 6]).values
 
         # Convert annual to monthly interest rates
-        # NOTE: Input rates are expected in decimal form (e.g., 0.045 = 4.5%)
-        # If input is already a percentage (e.g., 4.5), divide by 100 first
-        # Simple heuristic: if rate > 1, assume it's a percentage; otherwise it's decimal
-        if np.any(annual_interest_rates > 1):
-            # Rates appear to be percentages (like 4.5), convert to decimal
+        # STANDARD FORMAT: Input rates should be percentages (e.g., 4.5 = 4.5%)
+        # Smart detection: if any rate > 1, treat as percentage; otherwise as decimal
+        # This allows flexibility but percentages are the expected format
+        detected_as_percentage = np.any(annual_interest_rates > 1)
+
+        if detected_as_percentage:
+            # Rates appear to be percentages (like 4.5), convert to decimal then monthly
             monthly_interest_rates = annual_interest_rates / 100 / 12
         else:
-            # Rates are already decimals (like 0.045), just divide by 12
+            # Rates are already decimals (like 0.045), just convert to monthly
             monthly_interest_rates = annual_interest_rates / 12
+
+        # Validation: Warn if rates seem unusual
+        # Typical loan rates: 0.5% - 15% annually
+        # In decimal form: 0.005 - 0.15 monthly: 0.00042 - 0.0125
+        if np.any(monthly_interest_rates < 0.00001) or np.any(monthly_interest_rates > 0.05):
+            print(f"WARNING: Unusual interest rates detected (monthly): {monthly_interest_rates}")
+            print(f"Detected format: {'Percentage (e.g., 4.5)' if detected_as_percentage else 'Decimal (e.g., 0.045)'}")
 
         # Run selected strategies
         self.results = {}
@@ -339,7 +357,15 @@ class LoanCalculator:
         loan_numbers = payment_table['loanNumber'].values
 
         # Get interest rates and initial balances from loan data
-        interest_rates = pd.to_numeric(self.loan_data.iloc[:, 6]).values / 100 / 12  # Monthly rates
+        annual_rates = pd.to_numeric(self.loan_data.iloc[:, 6]).values
+
+        # STANDARD FORMAT: Input rates should be percentages (e.g., 4.5 = 4.5%)
+        # Smart detection: if any rate > 1, treat as percentage; otherwise as decimal
+        if np.any(annual_rates > 1):
+            interest_rates = annual_rates / 100 / 12  # Convert from percentage to monthly decimal
+        else:
+            interest_rates = annual_rates / 12  # Already in decimal form, just convert to monthly
+
         principal_balances = pd.to_numeric(self.loan_data.iloc[:, 4]).values.copy().astype(float)
 
         # Create output with total payments (principal + interest) for each loan

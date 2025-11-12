@@ -175,6 +175,9 @@ def evenly_distributed_payments(
             extra_dollars = np.zeros(num_active)
         principal_payment = active_min_principal + extra_dollars
 
+        # Save starting principal before any payments
+        starting_active_principal = active_principal.copy()
+
         # Handle overpayments
         for j in range(len(principal_payment)):
             if principal_payment[j] > active_principal[j]:
@@ -206,15 +209,18 @@ def evenly_distributed_payments(
                 sigma_b = np.sum(active_principal)
                 principal_balances[active_idx] = active_principal
 
+        # Compute actual principal paid (including remainder redistribution)
+        actual_principal_payment = starting_active_principal - active_principal
+
         months += 1
         interest_tally.append(float(np.sum(accrued_interest)))
-        total_payment = np.sum(accrued_interest) + np.sum(principal_payment) + extra_payment
+        total_payment = np.sum(accrued_interest) + np.sum(actual_principal_payment)
         monthly_payments.append(float(total_payment))
 
         # Create payment table column
         col_name = f'Month{months}'
         payment_col = np.zeros(len(loan_numbers))
-        payment_col[active_idx] = principal_payment
+        payment_col[active_idx] = actual_principal_payment
         payment_columns[col_name] = payment_col
 
         # Zero out very small balances to prevent floating point errors
@@ -302,6 +308,9 @@ def high_interest_first(
         principal_payment = active_min_principal.copy()
         principal_payment[max_interest_idx] += np.sum(extra_dollars)
 
+        # Save starting principal before any payments
+        starting_active_principal = active_principal.copy()
+
         # Handle overpayments
         for j in range(len(principal_payment)):
             if principal_payment[j] > active_principal[j]:
@@ -332,14 +341,17 @@ def high_interest_first(
                 sigma_b = np.sum(active_principal)
                 principal_balances[active_idx] = active_principal
 
+        # Compute actual principal paid (including remainder redistribution)
+        actual_principal_payment = starting_active_principal - active_principal
+
         months += 1
         interest_tally.append(float(np.sum(accrued_interest)))
-        total_payment = np.sum(accrued_interest) + np.sum(principal_payment) + extra_payment
+        total_payment = np.sum(accrued_interest) + np.sum(actual_principal_payment)
         monthly_payments.append(float(total_payment))
 
         col_name = f'Month{months}'
         payment_col = np.zeros(len(loan_numbers))
-        payment_col[active_idx] = principal_payment
+        payment_col[active_idx] = actual_principal_payment
         payment_columns[col_name] = payment_col
 
         # Zero out very small balances to prevent floating point errors
@@ -425,6 +437,9 @@ def high_balance_first(
         principal_payment = active_min_principal.copy()
         principal_payment[max_balance_idx] += np.sum(extra_dollars)
 
+        # Save starting principal before any payments
+        starting_active_principal = active_principal.copy()
+
         # Handle overpayments
         for j in range(len(principal_payment)):
             if principal_payment[j] > active_principal[j]:
@@ -455,14 +470,17 @@ def high_balance_first(
                 sigma_b = np.sum(active_principal)
                 principal_balances[active_idx] = active_principal
 
+        # Compute actual principal paid (including remainder redistribution)
+        actual_principal_payment = starting_active_principal - active_principal
+
         months += 1
         interest_tally.append(float(np.sum(accrued_interest)))
-        total_payment = np.sum(accrued_interest) + np.sum(principal_payment) + extra_payment
+        total_payment = np.sum(accrued_interest) + np.sum(actual_principal_payment)
         monthly_payments.append(float(total_payment))
 
         col_name = f'Month{months}'
         payment_col = np.zeros(len(loan_numbers))
-        payment_col[active_idx] = principal_payment
+        payment_col[active_idx] = actual_principal_payment
         payment_columns[col_name] = payment_col
 
         # Zero out very small balances to prevent floating point errors
@@ -689,7 +707,7 @@ def minimize_accrued_interest(
 
         # Objective function: minimize -sum(payment * rate)
         # (negative because linprog minimizes, and we want to maximize sum(payment * rate))
-        c = -active_rates
+        c = -active_rates*active_min_principal
 
         # Constraint: sum(payment) <= mpp
         A_ub = np.ones((1, num_active))
@@ -760,3 +778,173 @@ def minimize_accrued_interest(
 
     payment_table = pd.DataFrame(payment_columns)
     return months, payment_table, monthly_payments, interest_tally
+
+
+def milp_lifetime_optimal(
+    max_monthly_payment: float,
+    payment_case: int,
+    loan_numbers: np.ndarray,
+    interest_rates: np.ndarray,
+    principal_balances: np.ndarray,
+    min_monthly_payments: np.ndarray
+) -> Tuple[int, pd.DataFrame, List[float], List[float]]:
+    """
+    Mixed Integer Linear Programming (MILP) lifetime optimizer.
+
+    Solves a single comprehensive optimization problem that minimizes total interest
+    accrued over the entire repayment horizon, with explicit balance dynamics and
+    minimum payment enforcement via binary variables.
+
+    This is mathematically more rigorous than the myopic monthly approach because:
+    - It optimizes the entire payment sequence simultaneously
+    - It properly models balance dynamics: bal[t] = (1+r)*bal[t-1] - payment[t]
+    - It uses binary variables to enforce minimum payments only when loans are active
+    - It guarantees global optimality (within solver tolerance)
+
+    Requires: pulp, CBC solver
+
+    Trade-off: More complex, slower solve, but theoretically guaranteed optimal.
+    """
+    import pulp
+
+    BALANCE_TOLERANCE = 0.01
+
+    # Estimate planning horizon: use 2x the max simple payoff estimate
+    max_months_estimate = int(np.sum(principal_balances) / (max_monthly_payment / len(principal_balances)) * 1.5) + 5
+    T = min(max(max_months_estimate, 30), 360)  # Cap at 360 months, min 30
+
+    N = len(principal_balances)
+    monthly_rates = interest_rates.copy()  # Assume already in decimal form (monthly)
+
+    # ========================================================================
+    # Build MILP Model
+    # ========================================================================
+
+    model = pulp.LpProblem("minimize_lifetime_interest", pulp.LpMinimize)
+
+    # Decision variables
+    # bal[i, t]: balance of loan i after month t
+    # pay[i, t]: payment to loan i in month t (t >= 1)
+    # z[i, t]: binary indicator that loan i is active at start of month t
+
+    bal = {}
+    pay = {}
+    z = {}
+
+    for i in range(N):
+        for t in range(T + 1):
+            bal[(i, t)] = pulp.LpVariable(f"bal_{i}_{t}", lowBound=0, cat="Continuous")
+        for t in range(1, T + 1):
+            pay[(i, t)] = pulp.LpVariable(f"pay_{i}_{t}", lowBound=0, cat="Continuous")
+            z[(i, t)] = pulp.LpVariable(f"z_{i}_{t}", lowBound=0, upBound=1, cat="Binary")
+
+    # ========================================================================
+    # Constraints
+    # ========================================================================
+
+    # Initial balances
+    for i in range(N):
+        model += bal[(i, 0)] == float(principal_balances[i])
+
+    # Big-M constants for constraints
+    M_bal = principal_balances * 5.0  # Conservative upper bound on balance
+    M_pay = np.minimum(max_monthly_payment, principal_balances * 5.0)
+
+    # Dynamics and constraints for each month
+    for t in range(1, T + 1):
+        # Monthly budget constraint on principal payments only
+        # (for payment_case=0: budget applies to principal, interest is additional)
+        model += pulp.lpSum(pay[(i, t)] for i in range(N)) <= max_monthly_payment
+
+        for i in range(N):
+            r_i = float(monthly_rates[i])
+            m_i = float(min_monthly_payments[i])
+
+            # Balance update: bal[i, t] = (1 + r_i) * bal[i, t-1] - pay[i, t]
+            model += bal[(i, t)] == (1.0 + r_i) * bal[(i, t-1)] - pay[(i, t)]
+
+            # Binary activation: if bal[i, t-1] > 0 then z[i, t] must be 1
+            # Enforce: bal[i, t-1] <= M_bal[i] * z[i, t]
+            model += bal[(i, t - 1)] <= M_bal[i] * z[(i, t)]
+
+            # Minimum payment enforcement: if active then pay >= m_i
+            model += pay[(i, t)] >= m_i * z[(i, t)]
+
+            # Maximum payment enforcement: if not active then pay must be 0
+            model += pay[(i, t)] <= M_pay[i] * z[(i, t)]
+
+            # No overpayment: cannot pay more than what's accrued (plus prior balance)
+            model += pay[(i, t)] <= (1.0 + r_i) * bal[(i, t - 1)]
+
+    # Final balance: all loans must be paid off within T months
+    for i in range(N):
+        model += bal[(i, T)] == 0
+
+    # ========================================================================
+    # Objective: Minimize total interest accrued
+    # ========================================================================
+    # Total interest = sum over all months of (monthly_rate[i] * balance_start_of_month[i,t])
+
+    model += pulp.lpSum(
+        float(monthly_rates[i]) * bal[(i, t - 1)]
+        for i in range(N)
+        for t in range(1, T + 1)
+    )
+
+    # ========================================================================
+    # Solve
+    # ========================================================================
+
+    solver = pulp.PULP_CBC_CMD(msg=False, timeLimit=300)
+    result = model.solve(solver)
+
+    if result != pulp.LpStatusOptimal:
+        raise ValueError(f"MILP solver failed: status={pulp.LpStatus[model.status]}")
+
+    # ========================================================================
+    # Extract solution
+    # ========================================================================
+
+    # Extract payment and balance variables
+    payment_array = np.zeros((T, N))
+    balance_array = np.zeros((T + 1, N))
+
+    for i in range(N):
+        for t in range(T + 1):
+            balance_array[t, i] = bal[(i, t)].varValue or 0.0
+        for t in range(1, T + 1):
+            payment_array[t - 1, i] = pay[(i, t)].varValue or 0.0
+
+    # Find actual payoff month
+    payoff_month = T
+    for t in range(1, T + 1):
+        if np.sum(balance_array[t]) < BALANCE_TOLERANCE:
+            payoff_month = t
+            break
+
+    actual_months = payoff_month
+
+    # Build output structures
+    months_list = list(range(1, actual_months + 1))
+    payment_columns = {'loanNumber': loan_numbers}
+    monthly_payments_list = []
+    interest_tally_list = []
+
+    for t in months_list:
+        t_idx = t - 1  # Convert to 0-indexed
+        month_col = f'Month{t}'
+
+        # Add payment column
+        payment_columns[month_col] = payment_array[t_idx]
+
+        # Calculate interest for this month (on starting balance)
+        interest_this_month = np.sum(balance_array[t_idx] * monthly_rates)
+        interest_tally_list.append(float(interest_this_month))
+
+        # Total payment for this month (interest + principal)
+        total_payment_this_month = interest_this_month + np.sum(payment_array[t_idx])
+        monthly_payments_list.append(float(total_payment_this_month))
+
+    payment_table = pd.DataFrame(payment_columns)
+
+    return actual_months, payment_table, monthly_payments_list, interest_tally_list
