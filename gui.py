@@ -404,10 +404,6 @@ class LoanCalculatorApp(QMainWindow):
         self.browse_btn.clicked.connect(self.browse_file)
         file_layout.addWidget(self.browse_btn)
 
-        self.load_btn = QPushButton('Load File')
-        self.load_btn.clicked.connect(self.load_file)
-        file_layout.addWidget(self.load_btn)
-
         parent_layout.addLayout(file_layout)
 
         parent_layout.addSpacing(10)
@@ -498,11 +494,13 @@ class LoanCalculatorApp(QMainWindow):
             QMessageBox.critical(self, 'Error', f'Error creating template: {str(e)}')
 
     def browse_file(self):
-        """Browse for a loan data file."""
+        """Browse for a loan data file and automatically load it."""
         file_filter = 'All Files (*);;Excel Files (*.xlsx *.xls);;CSV Files (*.csv);;TSV Files (*.tsv);;Text Files (*.txt)'
         filepath, _ = QFileDialog.getOpenFileName(self, 'Load Loan Data', '', file_filter)
         if filepath:
             self.file_input.setText(filepath)
+            # Automatically load the file after selection
+            self.load_file()
 
     def load_file(self):
         """Load the selected file and populate the table."""
