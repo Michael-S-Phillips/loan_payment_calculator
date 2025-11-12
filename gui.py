@@ -313,11 +313,11 @@ class LoanCalculatorApp(QMainWindow):
 
         # Add information about MILP
         info_label = QLabel(
-            '📌 Note: MILP Lifetime Optimal uses Mixed Integer Linear Programming to find the globally '
-            'optimal payment allocation across your entire repayment period. It may be slower but guarantees '
-            'the best possible interest minimization.'
+            '📌 Note: MILP Lifetime Optimal uses Mixed Integer Linear Programming to find the globally optimal '
+            'payment allocation across your entire repayment period. It solves the problem holistically (all months at once) '
+            'rather than month-by-month, guaranteeing the mathematically best solution.'
         )
-        info_label.setStyleSheet('color: #1976D2; font-style: italic; padding: 10px; background-color: rgba(25,118,210,0.1); border-radius: 4px;')
+        info_label.setStyleSheet('color: #FF6F00; font-style: italic; padding: 10px; background-color: rgba(255,111,0,0.1); border-radius: 4px;')
         info_label.setWordWrap(True)
         strategy_layout.addWidget(info_label)
 

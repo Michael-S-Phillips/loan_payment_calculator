@@ -857,14 +857,10 @@ def milp_lifetime_optimal(
 
     # Dynamics and constraints for each month
     for t in range(1, T + 1):
-        # Monthly budget constraint: Total payment (interest + principal) <= budget
-        # This matches payment_case=0: max_monthly_payment is the total monthly budget
-        total_interest = pulp.lpSum(
-            float(monthly_rates[i]) * bal[(i, t - 1)]
-            for i in range(N)
-        )
-        total_principal = pulp.lpSum(pay[(i, t)] for i in range(N))
-        model += total_interest + total_principal <= max_monthly_payment
+        # Monthly budget constraint on principal payments
+        # max_monthly_payment is the maximum principal you can pay per month
+        # Interest is mandatory and accrues on remaining balance
+        model += pulp.lpSum(pay[(i, t)] for i in range(N)) <= max_monthly_payment
 
         for i in range(N):
             r_i = float(monthly_rates[i])
