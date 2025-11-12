@@ -352,21 +352,40 @@ with tab2:
                         avg_payment = result['total_cost'] / result['months']
                         st.metric("Avg Monthly Payment", f"${avg_payment:,.2f}")
 
-                    # Show payment table
-                    st.write("**Payment Schedule:**")
-                    payment_table = result['payment_table'].copy()
-                    st.dataframe(payment_table, use_container_width=True)
+                    # Show payment table with total payments (principal + interest)
+                    st.write("**Payment Schedule (Total Payments - Principal + Interest):**")
+                    st.info("⚠️ These are the actual amounts you'll pay to each loan provider each month.")
 
-                    # Export option
-                    csv_buffer = io.StringIO()
-                    payment_table.to_csv(csv_buffer, index=False)
-                    st.download_button(
-                        label=f"📥 Download {result['name']} Details (CSV)",
-                        data=csv_buffer.getvalue(),
-                        file_name=f"{result['name'].replace(' ', '_')}_details.csv",
-                        mime="text/csv",
-                        key=f"download_{strategy_key}"
-                    )
+                    try:
+                        # Use the calculator's _create_payment_summary method to show total payments
+                        payment_summary = st.session_state.calculator._create_payment_summary(strategy_key)
+
+                        # Format for display
+                        display_summary = payment_summary.copy()
+                        month_cols = [col for col in display_summary.columns if col.startswith('Month')]
+                        for col in month_cols:
+                            display_summary[col] = display_summary[col].apply(
+                                lambda x: f"${x:,.2f}" if pd.notna(x) and isinstance(x, (int, float)) else (x if pd.notna(x) else "")
+                            )
+
+                        st.dataframe(display_summary, use_container_width=True)
+
+                        # Export option
+                        csv_buffer = io.StringIO()
+                        payment_summary.to_csv(csv_buffer, index=False)
+                        st.download_button(
+                            label=f"📥 Download {result['name']} Details (CSV)",
+                            data=csv_buffer.getvalue(),
+                            file_name=f"{result['name'].replace(' ', '_')}_details.csv",
+                            mime="text/csv",
+                            key=f"download_{strategy_key}"
+                        )
+                    except Exception as e:
+                        st.error(f"Error generating payment summary: {str(e)}")
+                        # Fall back to raw payment table if summary fails
+                        st.write("**Raw Principal Payment Table (fallback):**")
+                        payment_table = result['payment_table'].copy()
+                        st.dataframe(payment_table, use_container_width=True)
 
 # ============================================================================
 # Tab 3: Charts
