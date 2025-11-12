@@ -221,7 +221,15 @@ class LoanCalculator:
         annual_interest_rates = pd.to_numeric(self.loan_data.iloc[:, 6]).values
 
         # Convert annual to monthly interest rates
-        monthly_interest_rates = annual_interest_rates / 100 / 12
+        # NOTE: Input rates are expected in decimal form (e.g., 0.045 = 4.5%)
+        # If input is already a percentage (e.g., 4.5), divide by 100 first
+        # Simple heuristic: if rate > 1, assume it's a percentage; otherwise it's decimal
+        if np.any(annual_interest_rates > 1):
+            # Rates appear to be percentages (like 4.5), convert to decimal
+            monthly_interest_rates = annual_interest_rates / 100 / 12
+        else:
+            # Rates are already decimals (like 0.045), just divide by 12
+            monthly_interest_rates = annual_interest_rates / 12
 
         # Run selected strategies
         self.results = {}

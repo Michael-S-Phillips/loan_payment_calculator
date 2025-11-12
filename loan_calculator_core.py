@@ -539,17 +539,13 @@ def snowball_method(
         # Find loan with lowest balance
         min_balance_idx = np.argmin(active_principal)
 
-        # Distribute extra to lowest balance loan
-        num_active = np.sum(active_idx)
+        # Calculate extra available after minimums
         extra_available = mpp - np.sum(active_min_principal)
 
-        if extra_available > 0:
-            extra_dollars = np.ones(num_active) * extra_available / num_active
-        else:
-            extra_dollars = np.zeros(num_active)
-
+        # Snowball: Send ALL extra to the lowest balance loan
         principal_payment = active_min_principal.copy()
-        principal_payment[min_balance_idx] += np.sum(extra_dollars)
+        if extra_available > 0:
+            principal_payment[min_balance_idx] += extra_available
 
         # Handle overpayments
         for j in range(len(principal_payment)):
@@ -679,33 +675,30 @@ def minimize_accrued_interest(
         # active_min_payments are total payments, but we need to enforce the principal portion
         active_min_principal = np.maximum(0, active_min_payments - accrued_interest)
 
-        # For linear programming, we need to cap at principal balance to ensure feasibility
+        # Cap at principal balance to ensure feasibility
         active_min_principal = np.minimum(active_min_principal, active_principal)
 
-        # Enforce minimum principal payment constraints
-        active_min_principal = _enforce_minimum_payments(active_min_principal, mpp)
-
-        # Use optimization to minimize total accrued interest for next month
-        # Minimize: sum((balance - payment) * rate)
-        # Which is equivalent to: maximize sum(payment * rate) since balance is constant
-        # Constraints: sum(payment) <= mpp, payment >= min_payment, payment <= balance
+        # Use linear programming to minimize total accrued interest for next month
+        # Minimize: sum((balance - payment) * rate) = minimize -sum(payment * rate)
+        # Constraints:
+        #   sum(payment) <= mpp (total principal budget)
+        #   payment[i] >= min_principal[i] (minimum payment constraint)
+        #   payment[i] <= balance[i] (can't pay more than owed)
 
         num_active = len(active_principal)
 
-        # Objective: minimize sum((active_principal - payment) * active_rates)
-        # = minimize sum(active_principal * active_rates) - sum(payment * active_rates)
-        # The constant doesn't matter, so minimize -sum(payment * active_rates)
-        # Which is maximize sum(payment * active_rates)
-        c = -active_rates  # Negative because linprog minimizes
+        # Objective function: minimize -sum(payment * rate)
+        # (negative because linprog minimizes, and we want to maximize sum(payment * rate))
+        c = -active_rates
 
-        # Constraint 1: sum(payment) <= mpp
+        # Constraint: sum(payment) <= mpp
         A_ub = np.ones((1, num_active))
         b_ub = np.array([mpp])
 
-        # Bounds: payment[i] >= min_principal[i] and payment[i] <= principal[i]
+        # Variable bounds: min_principal[i] <= payment[i] <= principal[i]
         bounds = [(active_min_principal[i], active_principal[i]) for i in range(num_active)]
 
-        # Solve
+        # Solve the optimization problem
         result = linprog(c, A_ub=A_ub, b_ub=b_ub, bounds=bounds, method='highs')
 
         if not result.success:
@@ -718,6 +711,9 @@ def minimize_accrued_interest(
             if principal_payment[j] > active_principal[j]:
                 pay_remainder += principal_payment[j] - active_principal[j]
                 principal_payment[j] = active_principal[j]
+
+        # Save starting principal before remainder redistribution
+        starting_active_principal = active_principal.copy()
 
         active_principal -= principal_payment
         principal_balances[active_idx] = active_principal
@@ -743,14 +739,19 @@ def minimize_accrued_interest(
                 sigma_b = np.sum(active_principal)
                 principal_balances[active_idx] = active_principal
 
+        # Compute actual payments made (including remainder redistribution)
+        actual_principal_payment = starting_active_principal - active_principal
+
         months += 1
         interest_tally.append(float(np.sum(accrued_interest)))
-        total_payment = np.sum(accrued_interest) + np.sum(principal_payment) + extra_payment
+        # Use actual payments (already includes remainder redistribution)
+        total_payment = np.sum(accrued_interest) + np.sum(actual_principal_payment)
         monthly_payments.append(float(total_payment))
 
         col_name = f'Month{months}'
         payment_col = np.zeros(len(loan_numbers))
-        payment_col[active_idx] = principal_payment
+        # Record ACTUAL payments (including remainder redistribution)
+        payment_col[active_idx] = actual_principal_payment
         payment_columns[col_name] = payment_col
 
         # Zero out very small balances to prevent floating point errors
