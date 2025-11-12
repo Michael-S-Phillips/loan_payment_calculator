@@ -302,7 +302,7 @@ class LoanCalculatorApp(QMainWindow):
             ('high_balance', 'High Balance First - Focus on highest principal balance loans'),
             ('minimize_interest', 'Minimize Interest - Optimize to minimize monthly interest charges'),
             ('snowball', 'Snowball Method - Pay off lowest balance loans first'),
-            ('milp_lifetime', '⭐ MILP Lifetime Optimal - Mathematically optimal solution (uses principal-only budget)')
+            ('milp_lifetime', '⭐ MILP Lifetime Optimal - Globally optimal solution (slower but mathematically proven)')
         ]
 
         for key, label in strategies:
@@ -311,12 +311,13 @@ class LoanCalculatorApp(QMainWindow):
             self.strategy_checks[key] = checkbox
             strategy_layout.addWidget(checkbox)
 
-        # Add information about budget interpretation
+        # Add information about MILP
         info_label = QLabel(
-            '📌 Note: Most strategies use total budget (principal + interest). '
-            'MILP uses principal-only budget, which may result in higher monthly payments but optimal results.'
+            '📌 Note: MILP Lifetime Optimal uses Mixed Integer Linear Programming to find the globally '
+            'optimal payment allocation across your entire repayment period. It may be slower but guarantees '
+            'the best possible interest minimization.'
         )
-        info_label.setStyleSheet('color: #FF9800; font-style: italic; padding: 10px; background-color: rgba(255,152,0,0.1); border-radius: 4px;')
+        info_label.setStyleSheet('color: #1976D2; font-style: italic; padding: 10px; background-color: rgba(25,118,210,0.1); border-radius: 4px;')
         info_label.setWordWrap(True)
         strategy_layout.addWidget(info_label)
 

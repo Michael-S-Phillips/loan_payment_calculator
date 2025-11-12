@@ -795,15 +795,20 @@ def milp_lifetime_optimal(
     accrued over the entire repayment horizon, with explicit balance dynamics and
     minimum payment enforcement via binary variables.
 
-    This is mathematically more rigorous than the myopic monthly approach because:
-    - It optimizes the entire payment sequence simultaneously
-    - It properly models balance dynamics: bal[t] = (1+r)*bal[t-1] - payment[t]
-    - It uses binary variables to enforce minimum payments only when loans are active
-    - It guarantees global optimality (within solver tolerance)
+    Budget Interpretation (payment_case=0):
+    - max_monthly_payment is the TOTAL monthly budget (principal + interest)
+    - Interest accrues on remaining balance
+    - Remaining budget after interest is available for principal reduction
+
+    Advantages over monthly optimization:
+    - Optimizes the entire payment sequence simultaneously
+    - Properly models balance dynamics: bal[t] = (1+r)*bal[t-1] - payment[t]
+    - Uses binary variables to enforce minimum payments only when loans are active
+    - Guarantees global optimality (within solver tolerance)
 
     Requires: pulp, CBC solver
 
-    Trade-off: More complex, slower solve, but theoretically guaranteed optimal.
+    Trade-off: More rigorous approach but computationally more intensive.
     """
     import pulp
 
@@ -852,9 +857,14 @@ def milp_lifetime_optimal(
 
     # Dynamics and constraints for each month
     for t in range(1, T + 1):
-        # Monthly budget constraint on principal payments only
-        # (for payment_case=0: budget applies to principal, interest is additional)
-        model += pulp.lpSum(pay[(i, t)] for i in range(N)) <= max_monthly_payment
+        # Monthly budget constraint: Total payment (interest + principal) <= budget
+        # This matches payment_case=0: max_monthly_payment is the total monthly budget
+        total_interest = pulp.lpSum(
+            float(monthly_rates[i]) * bal[(i, t - 1)]
+            for i in range(N)
+        )
+        total_principal = pulp.lpSum(pay[(i, t)] for i in range(N))
+        model += total_interest + total_principal <= max_monthly_payment
 
         for i in range(N):
             r_i = float(monthly_rates[i])
