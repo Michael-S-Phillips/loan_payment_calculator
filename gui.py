@@ -264,56 +264,7 @@ class LoanCalculatorApp(QMainWindow):
 
         main_layout.addSpacing(10)
 
-        # Loan Data Section
-        self.create_loan_data_section(main_layout)
-
-        main_layout.addSpacing(10)
-
-        # Settings section
-        settings_title = QLabel('Settings')
-        settings_title_font = QFont()
-        settings_title_font.setPointSize(12)
-        settings_title_font.setBold(True)
-        settings_title.setFont(settings_title_font)
-        main_layout.addWidget(settings_title)
-
-        settings_layout = QHBoxLayout()
-        settings_layout.addWidget(QLabel('Maximum Monthly Payment:'))
-        self.max_payment = QDoubleSpinBox()
-        self.max_payment.setValue(2000)
-        self.max_payment.setMinimum(0)
-        self.max_payment.setMaximum(999999)
-        settings_layout.addWidget(self.max_payment)
-        settings_layout.addStretch()
-        main_layout.addLayout(settings_layout)
-
-        main_layout.addSpacing(10)
-
-        # Strategies section
-        strategies_title = QLabel('Select Strategies to Compare')
-        strategies_title.setFont(settings_title_font)
-        main_layout.addWidget(strategies_title)
-
-        strategy_layout = QVBoxLayout()
-        self.strategy_checks = {}
-        strategies = [
-            ('even', 'Even Payments - Distribute extra payments equally across all loans'),
-            ('high_interest', 'High Interest First - Focus on highest interest rate loans'),
-            ('high_balance', 'High Balance First - Focus on highest principal balance loans'),
-            ('snowball', 'Snowball Method - Pay off lowest balance loans first'),
-            ('milp_lifetime', '⭐ MILP Lifetime Optimal - Globally optimal solution')
-        ]
-
-        for key, label in strategies:
-            checkbox = QCheckBox(label)
-            checkbox.setChecked(key != 'milp_lifetime')  # Enable all except MILP by default
-            self.strategy_checks[key] = checkbox
-            strategy_layout.addWidget(checkbox)
-
-        main_layout.addLayout(strategy_layout)
-        main_layout.addSpacing(10)
-
-        # Action buttons
+        # Action buttons (top level, always visible)
         button_layout = QHBoxLayout()
         self.calculate_btn = QPushButton('Calculate')
         self.calculate_btn.setObjectName('calculate_btn')
@@ -353,12 +304,75 @@ class LoanCalculatorApp(QMainWindow):
         self.progress_bar.setMaximum(0)  # Indeterminate progress
         main_layout.addWidget(self.progress_bar)
 
-        # Results section
+        # Create tab widget for Input and Results sections
+        self.tab_widget = QTabWidget()
+
+        # Tab 1: Input section
+        input_widget = QWidget()
+        input_layout = QVBoxLayout()
+        input_widget.setLayout(input_layout)
+
+        # Loan Data Section
+        self.create_loan_data_section(input_layout)
+
+        input_layout.addSpacing(10)
+
+        # Settings section
+        settings_title = QLabel('Settings')
+        settings_title_font = QFont()
+        settings_title_font.setPointSize(12)
+        settings_title_font.setBold(True)
+        settings_title.setFont(settings_title_font)
+        input_layout.addWidget(settings_title)
+
+        settings_layout = QHBoxLayout()
+        settings_layout.addWidget(QLabel('Maximum Monthly Payment:'))
+        self.max_payment = QDoubleSpinBox()
+        self.max_payment.setValue(2000)
+        self.max_payment.setMinimum(0)
+        self.max_payment.setMaximum(999999)
+        settings_layout.addWidget(self.max_payment)
+        settings_layout.addStretch()
+        input_layout.addLayout(settings_layout)
+
+        input_layout.addSpacing(10)
+
+        # Strategies section
+        strategies_title = QLabel('Select Strategies to Compare')
+        strategies_title.setFont(settings_title_font)
+        input_layout.addWidget(strategies_title)
+
+        strategy_layout = QVBoxLayout()
+        self.strategy_checks = {}
+        strategies = [
+            ('even', 'Even Payments - Distribute extra payments equally across all loans'),
+            ('high_interest', 'High Interest First - Focus on highest interest rate loans'),
+            ('high_balance', 'High Balance First - Focus on highest principal balance loans'),
+            ('snowball', 'Snowball Method - Pay off lowest balance loans first'),
+            ('milp_lifetime', '⭐ MILP Lifetime Optimal - Globally optimal solution')
+        ]
+
+        for key, label in strategies:
+            checkbox = QCheckBox(label)
+            checkbox.setChecked(key != 'milp_lifetime')  # Enable all except MILP by default
+            self.strategy_checks[key] = checkbox
+            strategy_layout.addWidget(checkbox)
+
+        input_layout.addLayout(strategy_layout)
+        input_layout.addStretch()  # Push content to top
+
+        self.tab_widget.addTab(input_widget, 'Input')
+
+        # Tab 2: Results section
+        results_widget = QWidget()
+        results_layout = QVBoxLayout()
+        results_widget.setLayout(results_layout)
+
         results_title = QLabel('Results Summary')
         results_title.setFont(settings_title_font)
         results_title.setVisible(False)
         self.results_title = results_title
-        main_layout.addWidget(results_title)
+        results_layout.addWidget(results_title)
 
         self.results_table = QTableWidget()
         self.results_table.setColumnCount(5)
@@ -366,9 +380,13 @@ class LoanCalculatorApp(QMainWindow):
         self.results_table.setRowCount(0)
         self.results_table.setVisible(False)
         self.results_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        main_layout.addWidget(self.results_table)
+        self.results_table.setMinimumHeight(300)
+        self.results_table.setAlternatingRowColors(True)
+        results_layout.addWidget(self.results_table)
 
-        main_layout.addStretch()
+        self.tab_widget.addTab(results_widget, 'Results')
+
+        main_layout.addWidget(self.tab_widget)
 
         # Status bar
         self.statusBar = QStatusBar()
