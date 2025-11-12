@@ -947,8 +947,11 @@ def milp_lifetime_optimal(
         interest_this_month = np.sum(balance_array[t_idx] * monthly_rates)
         interest_tally_list.append(float(interest_this_month))
 
-        # Total payment for this month (interest + principal)
-        total_payment_this_month = interest_this_month + np.sum(payment_array[t_idx])
+        # Total payment for this month
+        # NOTE: pay[(i,t)] in the model represents TOTAL payment (principal + interest)
+        # The balance dynamics enforce: bal[i,t] = (1+r)*bal[i,t-1] - pay[i,t]
+        # So payment_array already includes interest - don't double-count it
+        total_payment_this_month = np.sum(payment_array[t_idx])
         monthly_payments_list.append(float(total_payment_this_month))
 
     payment_table = pd.DataFrame(payment_columns)
