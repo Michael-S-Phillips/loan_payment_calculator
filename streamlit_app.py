@@ -12,6 +12,7 @@ import io
 from typing import Dict, List
 from loan_calculator import LoanCalculator
 from plot_strategies import StrategyPlotter
+from interactive_visualizations import InteractiveStrategyVisualizer
 
 # ============================================================================
 # Page Configuration
@@ -393,29 +394,153 @@ with tab2:
 
 with tab3:
     if st.session_state.results is None:
-        st.info("👈 Enter loan data and click 'Calculate' to see charts")
+        st.info("👈 Enter loan data and click 'Calculate' to see interactive charts")
     else:
-        st.header("📈 Strategy Comparison Charts")
+        st.header("📈 Interactive Strategy Analysis")
 
         try:
-            # Create comparison plots
-            fig = StrategyPlotter.create_comparison_plots(st.session_state.results)
-            st.pyplot(fig, use_container_width=True)
+            # Create subtabs for different visualizations
+            chart_tab1, chart_tab2, chart_tab3, chart_tab4, chart_tab5 = st.tabs([
+                "📊 Summary", "💰 Interest", "📈 Payments", "💵 Remaining", "📋 Comparison"
+            ])
 
-            # Download plot
-            buf = io.BytesIO()
-            fig.savefig(buf, format="png", dpi=150, bbox_inches='tight')
-            buf.seek(0)
+            # Tab 1: Summary with Key Metrics
+            with chart_tab1:
+                st.subheader("Strategy Performance Summary")
 
-            st.download_button(
-                label="📥 Download Charts (PNG)",
-                data=buf.getvalue(),
-                file_name="strategy_comparison.png",
-                mime="image/png"
-            )
+                # Create comparison table
+                comparison_df = InteractiveStrategyVisualizer.create_strategy_comparison_table(
+                    st.session_state.results
+                )
+
+                # Format for display
+                display_df = comparison_df.copy()
+                display_df['Total Interest'] = display_df['Total Interest'].apply(lambda x: f"${x:,.2f}")
+                display_df['Total Cost'] = display_df['Total Cost'].apply(lambda x: f"${x:,.2f}")
+                display_df['Avg Monthly'] = display_df['Avg Monthly'].apply(lambda x: f"${x:,.2f}")
+                display_df['Interest Savings vs Worst'] = display_df['Interest Savings vs Worst'].apply(lambda x: f"${x:,.2f}")
+
+                st.dataframe(display_df, use_container_width=True)
+
+                # Show gauge of savings
+                col1, col2 = st.columns([2, 1])
+                with col1:
+                    try:
+                        gauge_fig = InteractiveStrategyVisualizer.create_savings_gauge(
+                            st.session_state.results
+                        )
+                        st.plotly_chart(gauge_fig, use_container_width=True)
+                    except Exception as e:
+                        st.warning(f"Could not create gauge: {str(e)}")
+
+                with col2:
+                    # Show key statistics
+                    best_idx = comparison_df['Total Interest'].idxmin()
+                    best_strategy = comparison_df.loc[best_idx]
+
+                    st.metric(
+                        "🏆 Best Strategy",
+                        best_strategy['Strategy']
+                    )
+                    st.metric(
+                        "⏱️ Payoff Time",
+                        f"{int(best_strategy['Months'])} months"
+                    )
+                    st.metric(
+                        "💸 Total Interest",
+                        f"${best_strategy['Total Interest']:,.2f}"
+                    )
+
+            # Tab 2: Cumulative Interest Over Time
+            with chart_tab2:
+                st.subheader("Interest Paid Over Time (Cumulative)")
+                st.info("Hover over lines to see exact values. Strategies that rise slower are better!")
+
+                try:
+                    interest_fig = InteractiveStrategyVisualizer.create_cumulative_interest_chart(
+                        st.session_state.results
+                    )
+                    st.plotly_chart(interest_fig, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error generating interest chart: {str(e)}")
+
+            # Tab 3: Monthly Payments
+            with chart_tab3:
+                st.subheader("Monthly Payment Schedule")
+                st.info("Watch how monthly payments change over time for each strategy.")
+
+                try:
+                    payment_fig = InteractiveStrategyVisualizer.create_monthly_payment_comparison(
+                        st.session_state.results
+                    )
+                    st.plotly_chart(payment_fig, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error generating payment chart: {str(e)}")
+
+            # Tab 4: Remaining Principal
+            with chart_tab4:
+                st.subheader("Remaining Loan Balance Over Time")
+                st.info("All strategies pay off at the same time, but interest costs differ.")
+
+                try:
+                    remaining_fig = InteractiveStrategyVisualizer.create_principal_remaining_chart(
+                        st.session_state.results,
+                        st.session_state.loans_data
+                    )
+                    st.plotly_chart(remaining_fig, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error generating remaining principal chart: {str(e)}")
+
+            # Tab 5: Detailed Comparison
+            with chart_tab5:
+                st.subheader("Side-by-Side Strategy Metrics")
+
+                try:
+                    comparison_bar_fig = InteractiveStrategyVisualizer.create_comparison_bar_chart(
+                        st.session_state.results
+                    )
+                    st.plotly_chart(comparison_bar_fig, use_container_width=True)
+                except Exception as e:
+                    st.error(f"Error generating comparison chart: {str(e)}")
+
+            # Download options
+            st.divider()
+            st.subheader("📥 Export Options")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                # Download as CSV (comparison table)
+                csv_buffer = io.StringIO()
+                comparison_df.to_csv(csv_buffer, index=False)
+                st.download_button(
+                    label="📊 Download Comparison (CSV)",
+                    data=csv_buffer.getvalue(),
+                    file_name="strategy_comparison.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+
+            with col2:
+                # Download static PNG of matplotlib plots
+                try:
+                    fig = StrategyPlotter.create_comparison_plots(st.session_state.results)
+                    buf = io.BytesIO()
+                    fig.savefig(buf, format="png", dpi=150, bbox_inches='tight')
+                    buf.seek(0)
+
+                    st.download_button(
+                        label="🖼️ Download as PNG",
+                        data=buf.getvalue(),
+                        file_name="strategy_comparison.png",
+                        mime="image/png",
+                        use_container_width=True
+                    )
+                except Exception as e:
+                    st.warning("Could not generate PNG export")
 
         except Exception as e:
-            st.error(f"Error generating charts: {str(e)}")
+            st.error(f"Error generating visualizations: {str(e)}")
 
 # ============================================================================
 # Footer
